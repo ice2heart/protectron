@@ -34,6 +34,7 @@ API_TOKEN = env.str('API_TOKEN')
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
+log = logging.getLogger('protectron')
 
 # Initialize bot and dispatcher
 bot = Bot(token=API_TOKEN)
@@ -69,7 +70,7 @@ class PassStorage:
     def check(self):
         if self.pos < len(self.items):
             return INPUTING
-        print(self.input_num, self.items)
+        log.info(f'{self.input_num} {self.items}')
         if self.input_num == self.items:
             return SUCSSES
         return FAIL
@@ -93,15 +94,14 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
     code = callback_query.data
     chat_id = callback_query['message']['chat']['id']
     member_id = callback_query['from']['id']
-    logging.warning(code)
-    logging.warning(callback_query)
+    debug_id = f'{callback_query["message"]["chat"]["username"]}-({callback_query["from"]["username"]}){callback_query["from"]["first_name"]}'
+    log.info(f'{debug_id}: {code}')
     _id = str(callback_query['message']['message_id']) + \
         '-' + str(callback_query['message']['chat']['id'])
-    logging.warning(_id)
     try:
         pass_item = data_store[_id]
     except KeyError:
-        print(f'{data_store["store"]} {_id}')
+        log.error(f'Something gone wrong: {data_store["store"]} {_id}')
         await bot.answer_callback_query(callback_query.id, text='Упс. что то пошло не так')
         return
     if not pass_item.user_check(callback_query['from']['id']):
@@ -113,13 +113,13 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
         await bot.answer_callback_query(callback_query.id, text=text)
     elif result is SUCSSES:
         data_store.pop(_id)
+        log.info(f'{debug_id}: SUCSSES')
         await bot.answer_callback_query(callback_query.id, text='SUCSSES')
         await clear(pass_item)
         await bot.send_message(callback_query['message']['chat']['id'],
-                               '''Добро пожаловать в Old-hard Чат!
+                               f'''Добро пожаловать в {callback_query["message"]["chat"]["title"]}!
 Здесь нет:
 - политики, хамства и троллей
-- нарушений УК РФ и священного EULA/ToS
 - рекламы без одобрения админа''')
         unmute = ChatPermissions(can_send_messages=True,
                                  can_send_media_messages=True,
@@ -129,6 +129,7 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
                                        permissions=unmute)
     else:
         data_store.pop(_id)
+        log.info(f'{debug_id}: FAIL')
         await bot.answer_callback_query(callback_query.id, text='FAIL')
         await clear(pass_item)
         await bot.kick_chat_member(chat_id, member_id)
@@ -161,6 +162,8 @@ async def capcha(message: types.Message):
         if member.id == my_id:
             continue
         # mute user
+        debug_id = f'{message.chat.username}-{member.username}'
+        log.info(f'{debug_id}: Start capcha')
         await bot.restrict_chat_member(message.chat.id, member.id, permissions=mute)
         inline_kb_full = InlineKeyboardMarkup(row_width=4)
         # btn = InlineKeyboardButton('Вторая кнопка', callback_data='btn2')
