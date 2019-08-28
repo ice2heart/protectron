@@ -143,6 +143,7 @@ async def leave_event(message: types.Message):
     for _id in data_store:
         pass_item = data_store[_id]
         if pass_item.chat_id == message.chat.id and pass_item.user_id == message['left_chat_member']['id']:
+            log.info(f'{pass_item.chat_id}:{pass_item.user_id}: Left chat, clean')
             pass_item = data_store.pop(_id)
             await clear(pass_item)
             await bot.delete_message(pass_item.chat_id, message['message_id'])
@@ -211,6 +212,7 @@ async def capcha(message: types.Message):
         data_store[_id] = PassStorage(
             btn_pass, member.id, sent_message["chat"]["id"], sent_message["message_id"], expired_time)
         # do not delet message about incoming
+        # clean it kicked.... save messages with tags
         # data_store[_id].add_message_id(message.message_id)
         data_store[_id].add_message_id(sent_message["message_id"])
         data_store.sync()
@@ -225,6 +227,7 @@ async def cleaner():
         for _id in list(data_store.keys()):
             item = data_store[_id]
             if item.expired_time < now:
+                log.info(f'{item.chat_id}:{item.user_id}: Timeout, kick and clean')
                 data_store.pop(_id)
                 chat_id = item.chat_id
                 member_id = item.user_id
