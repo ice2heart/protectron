@@ -94,7 +94,7 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
     code = callback_query.data
     chat_id = callback_query['message']['chat']['id']
     member_id = callback_query['from']['id']
-    debug_id = f'{callback_query["message"]["chat"]["username"]}-({callback_query["from"]["username"]}){callback_query["from"]["first_name"]}'
+    debug_id = f'{callback_query["message"]["chat"]["username"]}-(@{callback_query["from"]["username"]}){callback_query["from"]["first_name"]} {callback_query["from"]["last_name"]}'
     log.info(f'{debug_id}: {code}')
     _id = str(callback_query['message']['message_id']) + \
         '-' + str(callback_query['message']['chat']['id'])
@@ -143,7 +143,7 @@ async def leave_event(message: types.Message):
     for _id in data_store:
         pass_item = data_store[_id]
         if pass_item.chat_id == message.chat.id and pass_item.user_id == message['left_chat_member']['id']:
-            log.info(f'{pass_item.chat_id}:{pass_item.user_id}: Left chat, clean')
+            log.info(f'{pass_item.chat_id}:@{pass_item.user_id}: Left chat, clean')
             pass_item = data_store.pop(_id)
             await clear(pass_item)
             await bot.delete_message(pass_item.chat_id, message['message_id'])
@@ -163,7 +163,7 @@ async def capcha(message: types.Message):
         if member.id == my_id:
             continue
         # mute user
-        debug_id = f'{message.chat.username}-{member.username}'
+        debug_id = f'{message.chat.username}-@{member.username}'
         log.info(f'{debug_id}: Start capcha')
         await bot.restrict_chat_member(message.chat.id, member.id, permissions=mute)
         inline_kb_full = InlineKeyboardMarkup(row_width=4)
@@ -227,7 +227,7 @@ async def cleaner():
         for _id in list(data_store.keys()):
             item = data_store[_id]
             if item.expired_time < now:
-                log.info(f'{item.chat_id}:{item.user_id}: Timeout, kick and clean')
+                log.info(f'{item.chat_id}:@{item.user_id}: Timeout, kick and clean')
                 data_store.pop(_id)
                 chat_id = item.chat_id
                 member_id = item.user_id
