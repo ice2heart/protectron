@@ -3,6 +3,7 @@
 # import pysnooper
 import asyncio
 import logging
+from enum import Enum
 
 import shelve
 from datetime import datetime, timedelta
@@ -46,6 +47,12 @@ FAIL = 1
 SUCSSES = 2
 
 
+class MESSAGE_TYPES(Enum):
+    LOGIN = 0
+    CAPTCHA = 1
+    LEFT = 2
+
+
 class PassStorage:
     def __init__(self, items, user_id, chat_id, message_id, expired_time):
         self.items = items
@@ -56,10 +63,10 @@ class PassStorage:
         self.chat_id = chat_id
         self.message_id = message_id
         self.expired_time = expired_time
-        self.messages = []
+        self.messages = {}
 
-    def add_message_id(self, message_id):
-        self.messages.append(message_id)
+    def add_message_id(self, message_type, message_id):
+        self.messages[message_type] = message_id
 
     def new_char(self, ch):
         self.input += ch
@@ -67,8 +74,20 @@ class PassStorage:
         self.pos += 1
         return self.input
 
+    def backspace(self):
+        try:
+            self.input_num.pop()
+        except IndexError:
+            return
+        self.input = ''.join(self.input_num)
+        self.pos -= 1
+        return self.input
+
     def check(self):
         if self.pos < len(self.items):
+            # TODO: replace hardcoded to evaluate
+            # if len(self.input_num) == 4 and self.items[:4] != self.input_num:
+            #     return FAIL
             return INPUTING
         log.info(f'{self.input_num} {self.items}')
         if self.input_num == self.items:
@@ -86,7 +105,26 @@ data_store = shelve.open('data_store.db', writeback=True)
 
 async def clear(store_item):
     for message in store_item.messages:
-        await bot.delete_message(store_item.chat_id, message)
+        await bot.delete_message(store_item.chat_id, store_item.messages[message])
+
+
+@dp.callback_query_handler(lambda c: c.data and c.data.startswith('backspace'))
+async def process_callback_backspace(callback_query: types.CallbackQuery):
+    debug_id = f'{callback_query.message.chat.username}-(@{callback_query.from_user.username})'\
+        f'{callback_query.from_user.first_name} {callback_query.from_user.last_name}'
+    log.info(f'{debug_id}: backspace')
+    _id = f'{callback_query.message.message_id}-{callback_query.message.chat.id}'
+    try:
+        pass_item = data_store[_id]
+    except KeyError:
+        log.error(f'Something gone wrong: {data_store["store"]} {_id}')
+        await bot.answer_callback_query(callback_query.id, text='Упс. что то пошло не так')
+        return
+    if not pass_item.user_check(callback_query.from_user.id):
+        await bot.answer_callback_query(callback_query.id, text='Это не для тебя.')
+        return
+    text = pass_item.backspace()
+    await bot.answer_callback_query(callback_query.id, text=text)
 
 
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('btn'))
@@ -94,7 +132,8 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
     code = callback_query.data
     chat_id = callback_query['message']['chat']['id']
     member_id = callback_query['from']['id']
-    debug_id = f'{callback_query["message"]["chat"]["username"]}-(@{callback_query["from"]["username"]}){callback_query["from"]["first_name"]} {callback_query["from"]["last_name"]}'
+    user_title = f'{callback_query["from"]["first_name"]} {callback_query["from"]["last_name"]}'
+    debug_id = f'{callback_query["message"]["chat"]["username"]}-(@{callback_query["from"]["username"]}){user_title}'
     log.info(f'{debug_id}: {code}')
     _id = str(callback_query['message']['message_id']) + \
         '-' + str(callback_query['message']['chat']['id'])
@@ -115,9 +154,10 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
         data_store.pop(_id)
         log.info(f'{debug_id}: SUCSSES')
         await bot.answer_callback_query(callback_query.id, text='SUCSSES')
+        pass_item.messages.pop(MESSAGE_TYPES.LOGIN)
         await clear(pass_item)
         await bot.send_message(callback_query['message']['chat']['id'],
-                               f'''Добро пожаловать в {callback_query["message"]["chat"]["title"]}!
+                               f'''{user_title}, добро пожаловать в {callback_query.message.chat.title}!
 Здесь нет:
 - политики, хамства и троллей
 - рекламы без одобрения админа''')
@@ -143,12 +183,21 @@ async def leave_event(message: types.Message):
     for _id in data_store:
         pass_item = data_store[_id]
         if pass_item.chat_id == message.chat.id and pass_item.user_id == message['left_chat_member']['id']:
-            log.info(f'{pass_item.chat_id}:@{pass_item.user_id}: Left chat, clean')
+            log.info(
+                f'{pass_item.chat_id}:@{pass_item.user_id}: Left chat, clean')
             pass_item = data_store.pop(_id)
+            pass_item.add_message_id(MESSAGE_TYPES.LEFT, message['message_id'])
             await clear(pass_item)
-            await bot.delete_message(pass_item.chat_id, message['message_id'])
             data_store.sync()
             return
+
+
+@dp.message_handler(regexp='/ping')
+async def ping(message: types.Message):
+    log.info(f'Ping requsted {message.chat.title}!')
+    await bot.send_message(message.chat.id,
+                           text='pong!\nI\'m still here.',
+                           reply_to_message_id=message.message_id)
 
 
 @dp.message_handler(content_types=ContentTypes.NEW_CHAT_MEMBERS)
@@ -162,6 +211,11 @@ async def capcha(message: types.Message):
         # Do not touch yourself
         if member.id == my_id:
             continue
+        if member.is_bot:
+            await bot.send_message(message.chat.id,
+                                   text='Привет новый бот!',
+                                   reply_to_message_id=message.message_id)
+            continue
         # mute user
         debug_id = f'{message.chat.username}-@{member.username}'
         log.info(f'{debug_id}: Start capcha')
@@ -170,7 +224,7 @@ async def capcha(message: types.Message):
         # btn = InlineKeyboardButton('Вторая кнопка', callback_data='btn2')
         # inline_kb_full.add(btn, btn, btn, btn, btn, btn, btn)
         # captcha_text_store = 'あかさたなはまやらわがざだばぴぢじぎりみひにちしきぃうぅくすつぬふむゆゅるぐずづぶぷぺべでぜげゑれめねてへせけぇえおこそとのほもよょろをごぞどぼぽ、ゞゝんっゔ'
-        captcha_text_store = 'asdfghjklzxcvbnmqwertyu12345678'
+        captcha_text_store = 'asdfghjkzxcvbnmqwertyu2345678'
         captcha_text = choices(captcha_text_store, k=8)
         # with pysnooper.snoop():
         btn_text = list(captcha_text)
@@ -185,6 +239,8 @@ async def capcha(message: types.Message):
             btns.append(InlineKeyboardButton(str(item), callback_data=_id))
         inline_kb_full.row(*btns[0:4])
         inline_kb_full.row(*btns[4:8])
+        backspace_btn = InlineKeyboardButton('⌫', callback_data='backspace')
+        inline_kb_full.row(backspace_btn)
 
         # file = io.BytesIO()
         # image = Image.new('RGBA', size=(250, 50), color=(155, 0, 0))
@@ -211,10 +267,9 @@ async def capcha(message: types.Message):
         expired_time = datetime.now() + timedelta(minutes=5)
         data_store[_id] = PassStorage(
             btn_pass, member.id, sent_message["chat"]["id"], sent_message["message_id"], expired_time)
-        # do not delet message about incoming
-        # clean it kicked.... save messages with tags
-        # data_store[_id].add_message_id(message.message_id)
-        data_store[_id].add_message_id(sent_message["message_id"])
+        data_store[_id].add_message_id(MESSAGE_TYPES.LOGIN, message.message_id)
+        data_store[_id].add_message_id(
+            MESSAGE_TYPES.CAPTCHA, sent_message["message_id"])
         data_store.sync()
 
 
@@ -227,7 +282,8 @@ async def cleaner():
         for _id in list(data_store.keys()):
             item = data_store[_id]
             if item.expired_time < now:
-                log.info(f'{item.chat_id}:@{item.user_id}: Timeout, kick and clean')
+                log.info(
+                    f'{item.chat_id}:@{item.user_id}: Timeout, kick and clean')
                 data_store.pop(_id)
                 chat_id = item.chat_id
                 member_id = item.user_id
