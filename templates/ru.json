@@ -1,0 +1,9 @@
+{
+    "join_msg": "Magic buttons\n${user_title}, если хочешь жить умей вертеться. У тебя 5 минут.",
+    "join_bot_msg": "Привет новый бот!",
+    "success_msg": "${user_title}, добро пожаловать в ${chat_title}!\nЗдесь нет:\n- политики, хамства и троллей\n- рекламы без одобрения админа",
+    "fail_msg": "Не получилось.",
+    "something_gone_wrong_warn": "Упс. что то пошло не так",
+    "not_for_you_warn": "Это не для тебя.",
+    "pong_msg": "pong!\nЯ все ещё тут."
+}
