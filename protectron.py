@@ -2,7 +2,9 @@
 
 # import pysnooper
 import asyncio
-import logging
+
+from configs import env, log
+
 from enum import IntEnum
 from typing import Dict
 
@@ -11,14 +13,8 @@ from random import choices, randrange, randint
 import json
 
 # import uvloop
-
-
 # from PIL import Image, ImageDraw
-
 from captcha.image import ImageCaptcha
-from environs import Env
-
-
 from mako.template import Template
 
 from aiogram import Bot, Dispatcher, types
@@ -32,15 +28,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile
 from data_storage import CAPTCHA_STATE, PassStorage, CaptchaStore
 
 # asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-env = Env()
-env.read_env()
-
 API_TOKEN = env.str('API_TOKEN')
-
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger('protectron')
 
 # Initialize bot and dispatcher
 bot: Bot = Bot(token=API_TOKEN)
@@ -244,18 +232,21 @@ async def capcha(message: types.Message):
 
 async def cleaner():
     while True:
-        await asyncio.sleep(60)
-        now = datetime.now()
-        for _id, item in data_store.list_captcha():
-            if item.is_expired(now):
-                log.info(
-                    f'{item.chat_id}:@{item.user_id}: Timeout, kick and clean')
-                data_store.remove_captcha(_id)
-                chat_id = item.chat_id
-                member_id = item.user_id
-                await clear(item)
-                await bot.kick_chat_member(chat_id, member_id)
-                await bot.unban_chat_member(chat_id, member_id)
+        try:
+            await asyncio.sleep(60)
+            now = datetime.now()
+            for _id, item in data_store.list_captcha():
+                if item.is_expired(now):
+                    log.info(
+                        f'{item.chat_id}:@{item.user_id}: Timeout, kick and clean')
+                    data_store.remove_captcha(_id)
+                    chat_id = item.chat_id
+                    member_id = item.user_id
+                    await clear(item)
+                    await bot.kick_chat_member(chat_id, member_id)
+                    await bot.unban_chat_member(chat_id, member_id)
+        except Exception as e:
+            log.error(f'Uncaught exception {e}')
 
 
 if __name__ == '__main__':

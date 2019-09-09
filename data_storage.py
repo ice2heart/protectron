@@ -1,14 +1,13 @@
 from datetime import datetime, timezone
 from enum import IntEnum
-import logging
+
 
 from typing import List, Dict, Tuple
 from tinydb import TinyDB, Query
 
-db = TinyDB('db.json')
+from configs import env, log
 
-
-log = logging.getLogger('protectron')
+db = TinyDB(env.str('DB_PATH', 'db.json'))
 
 
 class CAPTCHA_STATE(IntEnum):
