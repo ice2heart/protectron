@@ -11,12 +11,12 @@ pysnooper = "*"
 
 [packages]
 aiogram = "*"
-pillow = "*"
 captcha = "*"
 environs = "*"
 mako = "*"
 tinydb = "*"
 tinydb-serialization = "*"
+pillow-simd = "*"
 
 [requires]
 python_version = "3.7"
