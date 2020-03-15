@@ -26,7 +26,7 @@ from src.Captchas import base_capthca
 
 # asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 API_TOKEN = env.str('API_TOKEN')
-ADMIN_ID = env.str('ADMIN_ID')
+ADMIN_ID = int(env.str('ADMIN_ID'))
 
 # Initialize bot and dispatcher
 bot: Bot = Bot(token=API_TOKEN)
@@ -125,11 +125,13 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
                                        permissions=unmute)
     else:
         data_store.remove_captcha(_id)
-        log.info(f'{debug_id}: FAIL')
-        await bot.kick_chat_member(chat_id, member_id)
+        delay = datetime.now() + timedelta(minutes=1)
+        log.info(f'{debug_id}: FAIL, ban until {delay}')
+        # workaround to send new event.
+        await bot.kick_chat_member(chat_id, member_id, delay)
         await bot.answer_callback_query(callback_query.id, text=s('fail_msg', {'lang': 'ru'}))
         await clear(pass_item)
-        await bot.unban_chat_member(chat_id, member_id)
+        # await bot.unban_chat_member(chat_id, member_id)
 
     data_store.sync()
 
@@ -167,22 +169,26 @@ async def capcha(message: types.Message):
         # Do not touch yourself
         if member.id == my_id:
             continue
+        user_title = member.mention
+        debug_id = f'{message.chat.username}-{user_title}:{member.id}'
         if member.is_bot:
             await bot.send_message(message.chat.id,
                                    text=s('join_bot_msg', {'lang': 'ru'}),
                                    reply_to_message_id=message.message_id)
             continue
         if member.id == ADMIN_ID:
-            await bot.send_message(message.chat_id, text=s('join_owner_msg', {'lang': 'ru'}),
+            await bot.send_message(message.chat.id, text=s('join_owner_msg', {'lang': 'ru'}),
                                    reply_to_message_id=message.message_id)
+            continue
         # mute user
-        user_title = member.mention
-        debug_id = f'{message.chat.username}-{user_title}'
+
         log.info(f'{debug_id}: Start capcha')
         try:
             await bot.restrict_chat_member(message.chat.id, member.id, permissions=mute)
         except NotEnoughRightsToRestrict as e:
             log.info(f'{debug_id} can\'t restrict member : {e}')
+            await bot.send_message(message.chat.id, text=s('required_admin_permission', {'lang': 'en'}))
+            await bot.leave_chat(message.chat.id)
             continue
 
         input_file, inline_kb_full, btn_pass = base_capthca('ru')

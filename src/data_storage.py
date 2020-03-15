@@ -82,7 +82,11 @@ class CaptchaStore:
     def load_captcha(self):
         for item in self.captcha_store.all():
             captcha_id = item.pop('item_id')
-            self.current_captcha[captcha_id] = PassStorage(**item)
+            log.error(item)
+            try:
+                self.current_captcha[captcha_id] = PassStorage(**item)
+            except TypeError as e:
+                log.error(f'Load problem {e!r}')
 
     def get_captcha(self, captcha_id: str) -> PassStorage:
         return self.current_captcha[captcha_id]

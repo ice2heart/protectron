@@ -6,5 +6,6 @@
     "something_gone_wrong_warn": "Oops. Something goes wrong.",
     "not_for_you_warn": "It's not for you.",
     "pong_msg": "pong!\nI'm still here.",
-    "join_owner_msg": "Hello!"
+    "join_owner_msg": "Hello!",
+    "required_admin_permission": "Reuqired admin permission. Bye!"
 }
