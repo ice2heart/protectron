@@ -126,9 +126,9 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
     else:
         data_store.remove_captcha(_id)
         log.info(f'{debug_id}: FAIL')
+        await bot.kick_chat_member(chat_id, member_id)
         await bot.answer_callback_query(callback_query.id, text=s('fail_msg', {'lang': 'ru'}))
         await clear(pass_item)
-        await bot.kick_chat_member(chat_id, member_id)
         await bot.unban_chat_member(chat_id, member_id)
 
     data_store.sync()
