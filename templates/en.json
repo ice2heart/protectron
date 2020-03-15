@@ -1,0 +1,10 @@
+{
+    "join_msg": "Magic buttons\n${user_title}, if you want to live come with me. You have only 5 minutes.",
+    "join_bot_msg": "Hello, new bot friend!",
+    "success_msg": "${user_title}, Wellcome to ${chat_title}!\nThere are no:\n- politics, trolling.\n- ads without permission",
+    "fail_msg": "Fail.",
+    "something_gone_wrong_warn": "Oops. Something goes wrong.",
+    "not_for_you_warn": "It's not for you.",
+    "pong_msg": "pong!\nI'm still here.",
+    "join_owner_msg": "Hello!"
+}

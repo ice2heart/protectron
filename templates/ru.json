@@ -5,5 +5,6 @@
     "fail_msg": "Не получилось.",
     "something_gone_wrong_warn": "Упс. что то пошло не так",
     "not_for_you_warn": "Это не для тебя.",
-    "pong_msg": "pong!\nЯ все ещё тут."
+    "pong_msg": "pong!\nЯ все ещё тут.",
+    "join_owner_msg": "О, и тут ты!"
 }

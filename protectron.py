@@ -21,11 +21,12 @@ from aiogram.types.chat_permissions import ChatPermissions
 from aiogram.utils.exceptions import MessageToDeleteNotFound, NotEnoughRightsToRestrict, MessageCantBeDeleted
 
 
-from data_storage import CAPTCHA_STATE, PassStorage, CaptchaStore
+from src.data_storage import CAPTCHA_STATE, PassStorage, CaptchaStore
 from src.Captchas import base_capthca
 
 # asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 API_TOKEN = env.str('API_TOKEN')
+ADMIN_ID = env.str('ADMIN_ID')
 
 # Initialize bot and dispatcher
 bot: Bot = Bot(token=API_TOKEN)
@@ -171,6 +172,9 @@ async def capcha(message: types.Message):
                                    text=s('join_bot_msg', {'lang': 'ru'}),
                                    reply_to_message_id=message.message_id)
             continue
+        if member.id == ADMIN_ID:
+            await bot.send_message(message.chat_id, text=s('join_owner_msg', {'lang': 'ru'}),
+                                   reply_to_message_id=message.message_id)
         # mute user
         user_title = member.mention
         debug_id = f'{message.chat.username}-{user_title}'
@@ -190,7 +194,7 @@ async def capcha(message: types.Message):
         _id = f'{sent_message.message_id}-{sent_message.chat.id}'
         expired_time = datetime.now() + timedelta(minutes=5)
         pass_item = PassStorage(
-            btn_pass, member.id, sent_message.chat.id, sent_message.message_id, expired_time)
+            btn_pass, member.id, sent_message.chat.id, sent_message.message_id, expired_time, debug_id)
         pass_item.add_message_id(MESSAGE_TYPES.LOGIN, message.message_id)
         pass_item.add_message_id(
             MESSAGE_TYPES.CAPTCHA, sent_message.message_id)
@@ -206,7 +210,7 @@ async def cleaner():
             for _id, item in data_store.list_captcha():
                 if item.is_expired(now):
                     log.info(
-                        f'{item.chat_id}:@{item.user_id}: Timeout, kick and clean')
+                        f'{item.debug_id}: Timeout, kick and clean')
                     data_store.remove_captcha(_id)
                     chat_id = item.chat_id
                     member_id = item.user_id

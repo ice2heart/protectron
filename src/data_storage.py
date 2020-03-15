@@ -24,12 +24,14 @@ class CAPTCHA_STATE(IntEnum):
 class PassStorage:
     def __init__(self, items: List[str], user_id: int, chat_id: int,
                  message_id: int, expired_time: int,
+                 debug_id: str,
                  messages: Dict[int, int] = None, input_num: List[str] = None):
         self.items = items
         self.input_num = input_num or []
         self.user_id = user_id
         self.chat_id = chat_id
         self.message_id = message_id
+        self.debug_id = debug_id
         if isinstance(expired_time, datetime):
             self.expired_time = expired_time.replace(
                 tzinfo=timezone.utc).timestamp()
