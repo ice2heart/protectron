@@ -18,7 +18,7 @@ from aiogram.utils import executor
 from aiogram.types.message import ContentTypes
 from aiogram.types.chat_permissions import ChatPermissions
 # from aiogram.utils.exceptions import CantDemoteChatCreator
-from aiogram.utils.exceptions import MessageToDeleteNotFound, NotEnoughRightsToRestrict, MessageCantBeDeleted
+from aiogram.utils.exceptions import MessageToDeleteNotFound, NotEnoughRightsToRestrict, MessageCantBeDeleted, BadRequest
 
 
 from src.data_storage import CAPTCHA_STATE, PassStorage, CaptchaStore
@@ -187,7 +187,10 @@ async def capcha(message: types.Message):
             await bot.restrict_chat_member(message.chat.id, member.id, permissions=mute)
         except NotEnoughRightsToRestrict as e:
             log.info(f'{debug_id} can\'t restrict member : {e}')
-            await bot.send_message(message.chat.id, text=s('required_admin_permission', {'lang': 'en'}))
+            try:
+                await bot.send_message(message.chat.id, text=s('required_admin_permission', {'lang': 'en'}))
+            except BadRequest as e:
+                log.info(f'{debug_id} Exception {e!r}')
             await bot.leave_chat(message.chat.id)
             continue
 
