@@ -11,9 +11,9 @@ db = TinyDB(env.str('DB_PATH', 'db.json'))
 
 
 class CAPTCHA_STATE(IntEnum):
-    INPUTING = 0
+    INPUT = 0
     FAIL = 1
-    SUCSSES = 2
+    SUCCESS = 2
 
 
 # from tinydb_serialization import Serializer
@@ -55,10 +55,10 @@ class PassStorage:
 
     def check(self) -> CAPTCHA_STATE:
         if len(self.input_num) < len(self.items):
-            return CAPTCHA_STATE.INPUTING
+            return CAPTCHA_STATE.INPUT
         log.info(f'{self.input_num} {self.items}')
         if self.input_num == self.items:
-            return CAPTCHA_STATE.SUCSSES
+            return CAPTCHA_STATE.SUCCESS
         return CAPTCHA_STATE.FAIL
 
     def user_check(self, user):

@@ -18,7 +18,7 @@ from aiogram.utils import executor
 from aiogram.types.message import ContentTypes
 from aiogram.types.chat_permissions import ChatPermissions
 # from aiogram.utils.exceptions import CantDemoteChatCreator
-from aiogram.utils.exceptions import MessageToDeleteNotFound, NotEnoughRightsToRestrict, MessageCantBeDeleted, BadRequest
+from aiogram.utils.exceptions import MessageError, NotEnoughRightsToRestrict, BadRequest, Unauthorized
 
 
 from src.data_storage import CAPTCHA_STATE, PassStorage, CaptchaStore
@@ -47,7 +47,7 @@ async def clear(store_item):
     for message in store_item.messages:
         try:
             await bot.delete_message(store_item.chat_id, store_item.messages[message])
-        except (MessageToDeleteNotFound, MessageCantBeDeleted):
+        except MessageError:
             pass
 
 
@@ -103,12 +103,12 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
         return
     text = pass_item.new_char(code[-1:])
     result = pass_item.check()
-    if result is CAPTCHA_STATE.INPUTING:
+    if result is CAPTCHA_STATE.INPUT:
         await bot.answer_callback_query(callback_query.id, text=text)
-    elif result is CAPTCHA_STATE.SUCSSES:
+    elif result is CAPTCHA_STATE.SUCCESS:
         data_store.remove_captcha(_id)
-        log.info(f'{debug_id}: SUCSSES')
-        await bot.answer_callback_query(callback_query.id, text='SUCSSES')
+        log.info(f'{debug_id}: SUCCESS')
+        await bot.answer_callback_query(callback_query.id, text='SUCCESS')
         try:
             pass_item.messages.pop(MESSAGE_TYPES.LOGIN)
         except KeyError:
@@ -213,21 +213,25 @@ async def capcha(message: types.Message):
 
 async def cleaner():
     while True:
-        try:
-            await asyncio.sleep(60)
-            now = datetime.now()
-            for _id, item in data_store.list_captcha():
-                if item.is_expired(now):
-                    log.info(
-                        f'{item.debug_id}: Timeout, kick and clean')
-                    data_store.remove_captcha(_id)
-                    chat_id = item.chat_id
-                    member_id = item.user_id
-                    await clear(item)
-                    await bot.kick_chat_member(chat_id, member_id)
-                    await bot.unban_chat_member(chat_id, member_id)
-        except Exception as e:
-            log.error(f'Uncaught exception {e}')
+        await asyncio.sleep(60)
+        now = datetime.now()
+        for _id, item in data_store.list_captcha():
+            try:
+                if not item.is_expired(now):
+                    continue
+                log.info(
+                    f'{item.debug_id}: Timeout, kick and clean')
+                chat_id = item.chat_id
+                member_id = item.user_id
+                await clear(item)
+                await bot.kick_chat_member(chat_id, member_id)
+                data_store.remove_captcha(_id)
+                await bot.unban_chat_member(chat_id, member_id)
+            except Unauthorized as e:
+                log.error(f'Unauthorized: {e}')
+                data_store.remove_captcha(_id)
+            except Exception as e:
+                log.error(f'Uncaught exception {e}')
 
 
 if __name__ == '__main__':

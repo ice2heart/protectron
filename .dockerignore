@@ -1,1 +1,5 @@
 .env
+*.md
+ui/
+go/
+data/

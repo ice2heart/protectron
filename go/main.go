@@ -16,6 +16,36 @@ import (
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
+type caps struct {
+	userInput        string
+	captchaId        string
+	userID           int64
+	chatID           int64
+	captchaMessageID string
+	loginMessageID   string
+	success          bool
+}
+
+var (
+	runningCaps map[string]*caps
+	b           *tb.Bot
+)
+
+func clean(id string) {
+	item := runningCaps[id]
+	log.Println("Input clean")
+	// delete captcha
+	err := b.Delete(&tb.StoredMessage{MessageID: item.captchaMessageID, ChatID: item.chatID})
+	if err != nil {
+		log.Println("opsy")
+	}
+	// delete join message
+	err = b.Delete(&tb.StoredMessage{MessageID: item.loginMessageID, ChatID: item.chatID})
+	if err != nil {
+		log.Println("opsy")
+	}
+}
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
@@ -33,7 +63,7 @@ func main() {
 		log.Fatalf("Error loading .env file")
 	}
 	token := os.Getenv("API_TOKEN")
-	b, err := tb.NewBot(tb.Settings{
+	b, err = tb.NewBot(tb.Settings{
 		Token:  token,
 		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 	})
@@ -43,17 +73,8 @@ func main() {
 		return
 	}
 
-	type caps struct {
-		userInput        string
-		captchaId        string
-		userID           int
-		chatID           int64
-		captchaMessageID string
-		loginMessageID   string
-		success          bool
-	}
+	runningCaps = make(map[string]*caps)
 
-	runningCaps := make(map[string]*caps)
 	b.Handle("/hello", func(m *tb.Message) {
 		var (
 			menu     = &tb.ReplyMarkup{ResizeReplyKeyboard: true}
@@ -96,6 +117,9 @@ func main() {
 			if len(runningCaps[messageId].userInput) == 6 {
 				res := cap.CheckCaptcha(runningCaps[messageId].captchaId, runningCaps[messageId].userInput)
 				b.Respond(c, &tb.CallbackResponse{Text: fmt.Sprintf("You are %v", res)})
+				clean(messageId)
+
+				runningCaps[messageId].success = res
 				return
 			}
 			b.Respond(c, &tb.CallbackResponse{Text: "Input: " + runningCaps[messageId].userInput})
@@ -127,6 +151,7 @@ func main() {
 				runningCaps[messageId].userInput = runningCaps[messageId].userInput[:sz-1]
 			}
 			b.Respond(c, &tb.CallbackResponse{Text: "Input: " + runningCaps[messageId].userInput})
+
 		})
 		var buff bytes.Buffer
 		id := cap.GetNewCaptcha(&buff)

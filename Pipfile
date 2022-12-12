@@ -16,7 +16,7 @@ environs = "*"
 mako = "*"
 tinydb = "*"
 tinydb-serialization = "*"
-pillow-simd = "*"
+Pillow = "*"
 
 [requires]
-python_version = "3.7"
+python_version = "3.10"
