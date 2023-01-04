@@ -235,6 +235,7 @@ async def cleaner():
 
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     asyncio.ensure_future(cleaner())
     executor.start_polling(dp, loop=loop)
