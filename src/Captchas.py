@@ -1,4 +1,5 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from random import choices, randrange, randint, choice
 
@@ -7,28 +8,26 @@ from os import path
 from tempfile import TemporaryDirectory
 from PIL import Image, ImageDraw, ImageFont
 from captcha.image import ImageCaptcha
-from aiogram.types import InputFile
+from aiogram.types import BufferedInputFile
 
+
+from src.Callback import KeyboardCallback
 
 def base_capthca(lang):
-    inline_kb_full = InlineKeyboardMarkup(row_width=4)
+    inline_kb_full = InlineKeyboardBuilder()
     # captcha_text_store = 'あかさたなはまやらわがざだばぴぢじぎりみひにちしきぃうぅくすつぬふむゆゅるぐずづぶぷぺべでぜげゑれめねてへせけぇえおこそとのほもよょろをごぞどぼぽ、ゞゝんっゔ'
     captcha_text_store = 'asdfghjkzxcvbnmqwertyu2345678'
     captcha_text = choices(captcha_text_store, k=8)
     btn_text = list(captcha_text)
     btn_pass = list(btn_text)
     btn_order = []
-    btns = []
     for _ in range(8):
         random_index = randrange(len(btn_text))
         item = btn_text.pop(random_index)
-        _id = f'btn_{item}'
         btn_order.append(btn_pass.index(item))
-        btns.append(InlineKeyboardButton(str(item), callback_data=_id))
-    inline_kb_full.row(*btns[0:4])
-    inline_kb_full.row(*btns[4:8])
-    backspace_btn = InlineKeyboardButton('⌫', callback_data='backspace')
-    inline_kb_full.row(backspace_btn)
+        inline_kb_full.button(text=f'{item}', callback_data=KeyboardCallback(key='btn', value=item).pack())
+    inline_kb_full.adjust(4,2)
+    inline_kb_full.button(text='⌫', callback_data=KeyboardCallback(key='backspace', value='').pack())
 
     # file = io.BytesIO()
     # image = Image.new('RGBA', size=(250, 50), color=(155, 0, 0))
@@ -46,9 +45,9 @@ def base_capthca(lang):
 
     # Add noise dots for the image.
     image_captcha.create_noise_dots(image, image.getcolors())
-    input_file = InputFile(image_captcha.generate(captcha_text))
+    input_file = BufferedInputFile(image_captcha.generate(captcha_text).read(), 'captcha.png')
 
-    return (input_file, inline_kb_full, btn_pass)
+    return (input_file, inline_kb_full.as_markup(), btn_pass)
 
 
 def gen_pics(text: str, outfile):

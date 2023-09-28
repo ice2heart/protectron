@@ -13,24 +13,26 @@ import json
 
 from mako.template import Template
 
-from aiogram import Bot, Dispatcher, types
-from aiogram.utils import executor
-from aiogram.types.message import ContentTypes
+from aiogram import Bot, Dispatcher, types, Router, F
+from aiogram.enums import ParseMode
+from aiogram.types import ContentType, ChatMemberUpdated
+from aiogram.filters import Command, CommandObject, IS_MEMBER, IS_NOT_MEMBER, ChatMemberUpdatedFilter
 from aiogram.types.chat_permissions import ChatPermissions
-# from aiogram.utils.exceptions import CantDemoteChatCreator
-from aiogram.utils.exceptions import MessageError, NotEnoughRightsToRestrict, BadRequest, Unauthorized
-
+from aiogram.exceptions import AiogramError
 
 from src.data_storage import CAPTCHA_STATE, PassStorage, CaptchaStore
 from src.Captchas import base_capthca
+from src.Callback import KeyboardCallback
 
 # asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 API_TOKEN = env.str('API_TOKEN')
 ADMIN_ID = int(env.str('ADMIN_ID'))
 
 # Initialize bot and dispatcher
-bot: Bot = Bot(token=API_TOKEN)
-dp: Dispatcher = Dispatcher(bot)
+bot: Bot = Bot(token=API_TOKEN, parse_mode=ParseMode.HTML)
+dp: Dispatcher = Dispatcher()
+router: Router = Router()
+dp.include_router(router)
 
 
 class MESSAGE_TYPES(IntEnum):
@@ -47,7 +49,7 @@ async def clear(store_item):
     for message in store_item.messages:
         try:
             await bot.delete_message(store_item.chat_id, store_item.messages[message])
-        except MessageError:
+        except AiogramError:
             pass
 
 
@@ -64,9 +66,10 @@ def s(name: str, params: Dict) -> str:
     return Template(template).render(**params)
 
 
-@dp.callback_query_handler(lambda c: c.data and c.data.startswith('backspace'))
-async def process_callback_backspace(callback_query: types.CallbackQuery):
-    debug_id = f'{callback_query.message.chat.username}-({callback_query.from_user.mention})'
+
+@router.callback_query(KeyboardCallback.filter(F.key == 'backspace'))
+async def process_callback_backspace(callback_query: types.CallbackQuery, callback_data: KeyboardCallback):
+    debug_id = f'{callback_query.message.chat.username}-({callback_query.from_user.full_name})'
     log.info(f'{debug_id}: backspace')
     _id = f'{callback_query.message.message_id}-{callback_query.message.chat.id}'
     try:
@@ -82,12 +85,12 @@ async def process_callback_backspace(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id, text=text)
 
 
-@dp.callback_query_handler(lambda c: c.data and c.data.startswith('btn'))
-async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
-    code = callback_query.data
+@router.callback_query(KeyboardCallback.filter(F.key == 'btn'))
+async def process_callback_kb1btn1(callback_query: types.CallbackQuery, callback_data: KeyboardCallback):
+    code = callback_data.value
     chat_id = callback_query.message.chat.id
     member_id = callback_query.from_user.id
-    user_title = callback_query.from_user.mention
+    user_title = callback_query.from_user.full_name
     debug_id = f'{callback_query.message.chat.username}-({user_title})'
     chat_title = callback_query.message.chat.title
     log.info(f'{debug_id}: {code}')
@@ -101,7 +104,7 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
     if not pass_item.user_check(callback_query.from_user.id):
         await bot.answer_callback_query(callback_query.id, text=s('not_for_you_warn', {'lang': 'ru'}))
         return
-    text = pass_item.new_char(code[-1:])
+    text = pass_item.new_char(code)
     result = pass_item.check()
     if result is CAPTCHA_STATE.INPUT:
         await bot.answer_callback_query(callback_query.id, text=text)
@@ -128,90 +131,90 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
         delay = datetime.now() + timedelta(minutes=1)
         log.info(f'{debug_id}: FAIL, ban until {delay}')
         # workaround to send new event.
-        await bot.kick_chat_member(chat_id, member_id, delay)
+        await bot.ban_chat_member(chat_id, member_id, delay)
+        # await bot.kick_chat_member(chat_id, member_id, delay)
         await bot.answer_callback_query(callback_query.id, text=s('fail_msg', {'lang': 'ru'}))
         await clear(pass_item)
-        # await bot.unban_chat_member(chat_id, member_id)
+        await bot.unban_chat_member(chat_id, member_id)
 
     data_store.sync()
 
-
-@dp.message_handler(content_types=ContentTypes.LEFT_CHAT_MEMBER)
-async def leave_event(message: types.Message):
+@router.chat_member(ChatMemberUpdatedFilter(IS_MEMBER >> IS_NOT_MEMBER))
+async def leave_event(event: ChatMemberUpdated):
     for _id, pass_item in data_store.list_captcha():
-        if pass_item.chat_id == message.chat.id and pass_item.user_id == message.left_chat_member.id:
+        if pass_item.chat_id == event.chat.id and pass_item.user_id == event.from_user.id:
             log.info(
                 f'{pass_item.chat_id}:@{pass_item.user_id}: Left chat, clean')
             pass_item = data_store.remove_captcha(_id)
-            pass_item.add_message_id(MESSAGE_TYPES.LEFT, message.message_id)
+            # pass_item.add_message_id(MESSAGE_TYPES.LEFT, message.message_id)
             await clear(pass_item)
             data_store.sync()
             return
 
 
-@dp.message_handler(regexp='/ping')
-async def ping(message: types.Message):
+@router.message(Command("ping"))
+async def ping(message: types.Message, command: CommandObject):
     log.info(f'Ping requsted {message.chat.title}!')
     await bot.send_message(message.chat.id,
                            text=s('pong_msg', {'lang': 'ru'}),
                            reply_to_message_id=message.message_id)
 
 
-@dp.message_handler(content_types=ContentTypes.NEW_CHAT_MEMBERS)
-async def capcha(message: types.Message):
+@router.chat_member(ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER))
+async def capcha(event: ChatMemberUpdated):
+    # event.new_chat_member
     mute = ChatPermissions(can_send_messages=False,
                            can_send_media_messages=False,
                            can_add_web_page_previews=False,
                            can_send_other_messages=False,
                            can_send_polls=False)
-    my_id = (await bot.me).id
-    for member in message.new_chat_members:
-        # Do not touch yourself
-        if member.id == my_id:
-            continue
-        user_title = member.mention
-        debug_id = f'{message.chat.username}-{user_title}:{member.id}'
-        if member.is_bot:
-            await bot.send_message(message.chat.id,
-                                   text=s('join_bot_msg', {'lang': 'ru'}),
-                                   reply_to_message_id=message.message_id)
-            continue
-        if member.id == ADMIN_ID:
-            await bot.send_message(message.chat.id, text=s('join_owner_msg', {'lang': 'ru'}),
-                                   reply_to_message_id=message.message_id)
-            continue
-        # mute user
+    my_id = (await bot.me()).id
+    member = event.new_chat_member.user
+    # member.user.id
+    # Do not touch yourself
+    if member.id == my_id:
+        return
+    user_title = member.full_name
+    debug_id = f'{event.chat.username}-{user_title}:{member.id}'
+    if member.is_bot:
+        await event.answer(text=s('join_bot_msg', {'lang': 'ru'}))
+        return
+    if member.id == ADMIN_ID:
+        await event.answer(text=s('join_owner_msg', {'lang': 'ru'}))
+        return
+    # mute user
 
-        log.info(f'{debug_id}: Start capcha')
+    log.info(f'{debug_id}: Start capcha')
+    try:
+        await bot.restrict_chat_member(event.chat.id, member.id, permissions=mute)
+    except AiogramError as e:
+        log.info(f'{debug_id} can\'t restrict member : {e}')
         try:
-            await bot.restrict_chat_member(message.chat.id, member.id, permissions=mute)
-        except NotEnoughRightsToRestrict as e:
-            log.info(f'{debug_id} can\'t restrict member : {e}')
-            try:
-                await bot.send_message(message.chat.id, text=s('required_admin_permission', {'lang': 'en'}))
-            except BadRequest as e:
-                log.info(f'{debug_id} Exception {e!r}')
-            await bot.leave_chat(message.chat.id)
-            continue
+            await event.answer( text=s('required_admin_permission', {'lang': 'en'}))
+        except AiogramError as e:
+            log.info(f'{debug_id} Exception {e!r}')
+        await bot.leave_chat(event.chat.id)
+        return
 
-        input_file, inline_kb_full, btn_pass = base_capthca('ru')
-        sent_message = await bot.send_photo(message.chat.id, input_file,
-                                            caption=s(
-                                                'join_msg', {'lang': 'ru', 'user_title': user_title}),
-                                            reply_markup=inline_kb_full,
-                                            reply_to_message_id=message.message_id)
-        _id = f'{sent_message.message_id}-{sent_message.chat.id}'
-        expired_time = datetime.now() + timedelta(minutes=5)
-        pass_item = PassStorage(
-            btn_pass, member.id, sent_message.chat.id, sent_message.message_id, expired_time, debug_id)
-        pass_item.add_message_id(MESSAGE_TYPES.LOGIN, message.message_id)
-        pass_item.add_message_id(
-            MESSAGE_TYPES.CAPTCHA, sent_message.message_id)
-        data_store.new_captcha(_id, pass_item)
-        data_store.sync()
+    input_file, inline_kb_full, btn_pass = base_capthca('ru')
+    log.info(f'captcha: {btn_pass}')
+    sent_message = await event.answer_photo( input_file,
+                                        caption=s(
+                                            'join_msg', {'lang': 'ru', 'user_title': user_title}),
+                                        reply_markup=inline_kb_full)
+    _id = f'{sent_message.message_id}-{sent_message.chat.id}'
+    expired_time = datetime.now() + timedelta(minutes=5)
+    pass_item = PassStorage(
+        btn_pass, member.id, sent_message.chat.id, sent_message.message_id, expired_time, debug_id)
+    # pass_item.add_message_id(MESSAGE_TYPES.LOGIN, event.message_id)
+    pass_item.add_message_id(
+        MESSAGE_TYPES.CAPTCHA, sent_message.message_id)
+    data_store.new_captcha(_id, pass_item)
+    data_store.sync()
 
 
 async def cleaner():
+    not working
     while True:
         await asyncio.sleep(60)
         now = datetime.now()
@@ -227,15 +230,18 @@ async def cleaner():
                 await bot.kick_chat_member(chat_id, member_id)
                 data_store.remove_captcha(_id)
                 await bot.unban_chat_member(chat_id, member_id)
-            except Unauthorized as e:
+            except AiogramError as e:
                 log.error(f'Unauthorized: {e}')
                 data_store.remove_captcha(_id)
             except Exception as e:
                 log.error(f'Uncaught exception {e}')
 
+async def main():
+    # And the run events dispatching
+    await dp.start_polling(bot)
 
 if __name__ == '__main__':
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     asyncio.ensure_future(cleaner())
-    executor.start_polling(dp, loop=loop)
+    asyncio.run(main())
