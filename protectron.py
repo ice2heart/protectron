@@ -214,7 +214,6 @@ async def capcha(event: ChatMemberUpdated):
 
 
 async def cleaner():
-    not working
     while True:
         await asyncio.sleep(60)
         now = datetime.now()
@@ -227,7 +226,8 @@ async def cleaner():
                 chat_id = item.chat_id
                 member_id = item.user_id
                 await clear(item)
-                await bot.kick_chat_member(chat_id, member_id)
+                delay = datetime.now() + timedelta(minutes=1)
+                await bot.ban_chat_member(chat_id, member_id,delay)
                 data_store.remove_captcha(_id)
                 await bot.unban_chat_member(chat_id, member_id)
             except AiogramError as e:
@@ -238,10 +238,13 @@ async def cleaner():
 
 async def main():
     # And the run events dispatching
-    await dp.start_polling(bot)
+    pulling =  dp.start_polling(bot)
+    cleaner_future = cleaner()
+    # fix ctrl+c
+    await asyncio.gather(pulling, cleaner_future)
 
 if __name__ == '__main__':
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    asyncio.ensure_future(cleaner())
+    # asyncio.ensure_future(cleaner())
     asyncio.run(main())
