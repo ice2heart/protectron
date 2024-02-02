@@ -16,7 +16,7 @@ from src.Callback import KeyboardCallback
 def base_capthca(lang):
     inline_kb_full = InlineKeyboardBuilder()
     # captcha_text_store = 'あかさたなはまやらわがざだばぴぢじぎりみひにちしきぃうぅくすつぬふむゆゅるぐずづぶぷぺべでぜげゑれめねてへせけぇえおこそとのほもよょろをごぞどぼぽ、ゞゝんっゔ'
-    captcha_text_store = 'asdfghjkzxcvbnmqwertyu2345678'
+    captcha_text_store = 'ЙЦУКЕНГШЩЗФЫВАПРОЛДЯЧСМИТЬБ'
     captcha_text = choices(captcha_text_store, k=8)
     btn_text = list(captcha_text)
     btn_pass = list(btn_text)
@@ -38,13 +38,13 @@ def base_capthca(lang):
     # image_captcha = ImageCaptcha(fonts=['/usr/share/fonts/truetype/fonts-japanese-gothic.ttf'],  width=460, height=200)
     # image_captcha = ImageCaptcha(fonts=['/home/albert/.local/share/fonts/Iosevka Term Nerd Font Complete.ttf'],  width=460, height=200)
     image_captcha = ImageCaptcha(
-        fonts=['NotoSansCJKjp-Regular.otf'],  width=350, height=200)
+        fonts=['NotoSansCJKjp-Regular.otf'],  width=450, height=300)
     image = image_captcha.generate_image(captcha_text)
-    for _ in range(randint(1, 5)):
-        image_captcha.create_noise_curve(image, image.getcolors())
+    # for _ in range(randint(1, 5)):
+    #     image_captcha.create_noise_curve(image, image.getcolors())
 
-    # Add noise dots for the image.
-    image_captcha.create_noise_dots(image, image.getcolors())
+    # # Add noise dots for the image.
+    # image_captcha.create_noise_dots(image, image.getcolors())
     input_file = BufferedInputFile(image_captcha.generate(captcha_text).read(), 'captcha.png')
 
     return (input_file, inline_kb_full.as_markup(), btn_pass)

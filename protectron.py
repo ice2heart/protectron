@@ -18,7 +18,8 @@ from aiogram.enums import ParseMode
 from aiogram.types import ContentType, ChatMemberUpdated
 from aiogram.filters import Command, CommandObject, IS_MEMBER, IS_NOT_MEMBER, ChatMemberUpdatedFilter
 from aiogram.types.chat_permissions import ChatPermissions
-from aiogram.exceptions import AiogramError
+from aiogram.types.error_event import ErrorEvent
+from aiogram.exceptions import AiogramError, TelegramBadRequest
 
 from src.data_storage import CAPTCHA_STATE, PassStorage, CaptchaStore
 from src.Captchas import base_capthca
@@ -70,7 +71,7 @@ def s(name: str, params: Dict) -> str:
 @router.callback_query(KeyboardCallback.filter(F.key == 'backspace'))
 async def process_callback_backspace(callback_query: types.CallbackQuery, callback_data: KeyboardCallback):
     debug_id = f'{callback_query.message.chat.username}-({callback_query.from_user.full_name})'
-    log.info(f'{debug_id}: backspace')
+    log.warning(f'{debug_id}: backspace')
     _id = f'{callback_query.message.message_id}-{callback_query.message.chat.id}'
     try:
         pass_item = data_store.get_captcha(_id)
@@ -93,7 +94,7 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery, callback
     user_title = callback_query.from_user.full_name
     debug_id = f'{callback_query.message.chat.username}-({user_title})'
     chat_title = callback_query.message.chat.title
-    log.info(f'{debug_id}: {code}')
+    log.warning(f'{debug_id}: {code}')
     _id = f'{callback_query.message.message_id}-{callback_query.message.chat.id}'
     try:
         pass_item = data_store.get_captcha(_id)
@@ -110,7 +111,7 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery, callback
         await bot.answer_callback_query(callback_query.id, text=text)
     elif result is CAPTCHA_STATE.SUCCESS:
         data_store.remove_captcha(_id)
-        log.info(f'{debug_id}: SUCCESS')
+        log.warning(f'{debug_id}: SUCCESS')
         await bot.answer_callback_query(callback_query.id, text='SUCCESS')
         try:
             pass_item.messages.pop(MESSAGE_TYPES.LOGIN)
@@ -129,7 +130,7 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery, callback
     else:
         data_store.remove_captcha(_id)
         delay = datetime.now() + timedelta(minutes=1)
-        log.info(f'{debug_id}: FAIL, ban until {delay}')
+        log.warning(f'{debug_id}: FAIL, ban until {delay}')
         # workaround to send new event.
         await bot.ban_chat_member(chat_id, member_id, delay)
         # await bot.kick_chat_member(chat_id, member_id, delay)
@@ -139,11 +140,15 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery, callback
 
     data_store.sync()
 
+@router.error()
+async def error_handler(event: ErrorEvent):
+    log.critical("Critical error caused by %s", event.exception, exc_warning=True)
+
 @router.chat_member(ChatMemberUpdatedFilter(IS_MEMBER >> IS_NOT_MEMBER))
 async def leave_event(event: ChatMemberUpdated):
     for _id, pass_item in data_store.list_captcha():
         if pass_item.chat_id == event.chat.id and pass_item.user_id == event.from_user.id:
-            log.info(
+            log.warning(
                 f'{pass_item.chat_id}:@{pass_item.user_id}: Left chat, clean')
             pass_item = data_store.remove_captcha(_id)
             # pass_item.add_message_id(MESSAGE_TYPES.LEFT, message.message_id)
@@ -154,10 +159,13 @@ async def leave_event(event: ChatMemberUpdated):
 
 @router.message(Command("ping"))
 async def ping(message: types.Message, command: CommandObject):
-    log.info(f'Ping requsted {message.chat.title}!')
-    await bot.send_message(message.chat.id,
-                           text=s('pong_msg', {'lang': 'ru'}),
-                           reply_to_message_id=message.message_id)
+    log.warning(f'Ping requsted {message.chat.title}!')
+    try:
+        await bot.send_message(message.chat.id,
+                            text=s('pong_msg', {'lang': 'ru'}),
+                            reply_to_message_id=message.message_id)
+    except TelegramBadRequest:
+        pass
 
 
 @router.chat_member(ChatMemberUpdatedFilter(IS_NOT_MEMBER >> IS_MEMBER))
@@ -184,20 +192,20 @@ async def capcha(event: ChatMemberUpdated):
         return
     # mute user
 
-    log.info(f'{debug_id}: Start capcha')
+    log.warning(f'{debug_id}: Start capcha')
     try:
         await bot.restrict_chat_member(event.chat.id, member.id, permissions=mute)
     except AiogramError as e:
-        log.info(f'{debug_id} can\'t restrict member : {e}')
+        log.warning(f'{debug_id} can\'t restrict member : {e}')
         try:
             await event.answer( text=s('required_admin_permission', {'lang': 'en'}))
         except AiogramError as e:
-            log.info(f'{debug_id} Exception {e!r}')
+            log.warning(f'{debug_id} Exception {e!r}')
         await bot.leave_chat(event.chat.id)
         return
 
     input_file, inline_kb_full, btn_pass = base_capthca('ru')
-    log.info(f'captcha: {btn_pass}')
+    log.warning(f'captcha: {btn_pass}')
     sent_message = await event.answer_photo( input_file,
                                         caption=s(
                                             'join_msg', {'lang': 'ru', 'user_title': user_title}),
@@ -221,7 +229,7 @@ async def cleaner():
             try:
                 if not item.is_expired(now):
                     continue
-                log.info(
+                log.warning(
                     f'{item.debug_id}: Timeout, kick and clean')
                 chat_id = item.chat_id
                 member_id = item.user_id

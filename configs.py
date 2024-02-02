@@ -5,5 +5,5 @@ env = Env()
 env.read_env()
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 log = logging.getLogger('protectron')
