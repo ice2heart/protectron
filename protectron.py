@@ -70,8 +70,7 @@ def s(name: str, params: Dict) -> str:
 
 @router.callback_query(KeyboardCallback.filter(F.key == 'backspace'))
 async def process_callback_backspace(callback_query: types.CallbackQuery, callback_data: KeyboardCallback):
-    debug_id = f'{
-        callback_query.message.chat.username}-({callback_query.from_user.full_name})'
+    debug_id = f'{callback_query.message.chat.username}-({callback_query.from_user.full_name})'
     log.warning(f'{debug_id}: backspace')
     _id = f'{callback_query.message.message_id}-{callback_query.message.chat.id}'
     try:
