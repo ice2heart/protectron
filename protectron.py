@@ -31,6 +31,7 @@ ADMIN_ID = int(env.str('ADMIN_ID'))
 
 # Initialize bot and dispatcher
 bot: Bot = Bot(token=API_TOKEN, parse_mode=ParseMode.HTML)
+my_id = 0
 dp: Dispatcher = Dispatcher()
 router: Router = Router()
 dp.include_router(router)
@@ -67,10 +68,10 @@ def s(name: str, params: Dict) -> str:
     return Template(template).render(**params)
 
 
-
 @router.callback_query(KeyboardCallback.filter(F.key == 'backspace'))
 async def process_callback_backspace(callback_query: types.CallbackQuery, callback_data: KeyboardCallback):
-    debug_id = f'{callback_query.message.chat.username}-({callback_query.from_user.full_name})'
+    debug_id = f'{
+        callback_query.message.chat.username}-({callback_query.from_user.full_name})'
     log.warning(f'{debug_id}: backspace')
     _id = f'{callback_query.message.message_id}-{callback_query.message.chat.id}'
     try:
@@ -140,9 +141,12 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery, callback
 
     data_store.sync()
 
+
 @router.error()
 async def error_handler(event: ErrorEvent):
-    log.critical("Critical error caused by %s", event.exception, exc_warning=True)
+    log.critical("Critical error caused by %s",
+                 event.exception, exc_warning=True)
+
 
 @router.chat_member(ChatMemberUpdatedFilter(IS_MEMBER >> IS_NOT_MEMBER))
 async def leave_event(event: ChatMemberUpdated):
@@ -162,8 +166,8 @@ async def ping(message: types.Message, command: CommandObject):
     log.warning(f'Ping requsted {message.chat.title}!')
     try:
         await bot.send_message(message.chat.id,
-                            text=s('pong_msg', {'lang': 'ru'}),
-                            reply_to_message_id=message.message_id)
+                               text=s('pong_msg', {'lang': 'ru'}),
+                               reply_to_message_id=message.message_id)
     except TelegramBadRequest:
         pass
 
@@ -176,7 +180,9 @@ async def capcha(event: ChatMemberUpdated):
                            can_add_web_page_previews=False,
                            can_send_other_messages=False,
                            can_send_polls=False)
-    my_id = (await bot.me()).id
+    global my_id
+    if my_id == 0:
+        my_id = (await bot.me()).id
     member = event.new_chat_member.user
     # member.user.id
     # Do not touch yourself
@@ -198,18 +204,19 @@ async def capcha(event: ChatMemberUpdated):
     except AiogramError as e:
         log.warning(f'{debug_id} can\'t restrict member : {e}')
         try:
-            await event.answer( text=s('required_admin_permission', {'lang': 'en'}))
+            await event.answer(text=s('required_admin_permission', {'lang': 'en'}))
         except AiogramError as e:
             log.warning(f'{debug_id} Exception {e!r}')
-        await bot.leave_chat(event.chat.id)
+        # some errors for now dissabled
+        # await bot.leave_chat(event.chat.id)
         return
 
     input_file, inline_kb_full, btn_pass = base_capthca('ru')
     log.warning(f'captcha: {btn_pass}')
-    sent_message = await event.answer_photo( input_file,
-                                        caption=s(
-                                            'join_msg', {'lang': 'ru', 'user_title': user_title}),
-                                        reply_markup=inline_kb_full)
+    sent_message = await event.answer_photo(input_file,
+                                            caption=s(
+                                                'join_msg', {'lang': 'ru', 'user_title': user_title}),
+                                            reply_markup=inline_kb_full)
     _id = f'{sent_message.message_id}-{sent_message.chat.id}'
     expired_time = datetime.now() + timedelta(minutes=5)
     pass_item = PassStorage(
@@ -223,19 +230,20 @@ async def capcha(event: ChatMemberUpdated):
 
 async def cleaner():
     while True:
+        global my_id
         await asyncio.sleep(60)
         now = datetime.now()
         for _id, item in data_store.list_captcha():
             try:
                 if not item.is_expired(now):
                     continue
-                log.warning(
-                    f'{item.debug_id}: Timeout, kick and clean')
+                log.warning(f'{item.debug_id}: Timeout, kick and clean')
                 chat_id = item.chat_id
                 member_id = item.user_id
                 await clear(item)
                 delay = datetime.now() + timedelta(minutes=1)
-                await bot.ban_chat_member(chat_id, member_id,delay)
+                if member_id != my_id:
+                    await bot.ban_chat_member(chat_id, member_id, delay)
                 data_store.remove_captcha(_id)
                 await bot.unban_chat_member(chat_id, member_id)
             except AiogramError as e:
@@ -244,9 +252,10 @@ async def cleaner():
             except Exception as e:
                 log.error(f'Uncaught exception {e}')
 
+
 async def main():
     # And the run events dispatching
-    pulling =  dp.start_polling(bot)
+    pulling = dp.start_polling(bot)
     cleaner_future = cleaner()
     # fix ctrl+c
     await asyncio.gather(pulling, cleaner_future)
