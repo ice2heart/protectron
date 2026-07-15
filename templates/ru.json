@@ -6,5 +6,11 @@
     "something_gone_wrong_warn": "Упс. что то пошло не так",
     "not_for_you_warn": "Это не для тебя.",
     "pong_msg": "pong!\nЯ все ещё тут.",
-    "join_owner_msg": "О, и тут ты!"
+    "join_owner_msg": "О, и тут ты!",
+    "required_admin_permission": "Мне нужны права администратора. Пока!",
+    "retry_msg": "${user_title}, не вышло. Попробуй ещё раз.",
+    "admins_only_warn": "Только для админов.",
+    "settings_msg": "Настройки чата:\nlang: ${lang}\ntimeout: ${timeout} сек\nlength: ${length}\nattempts: ${attempts}\nban: ${ban} сек",
+    "set_ok_msg": "Готово.",
+    "set_bad_value_msg": "Не понял. Использование:\n/set lang ru|en\n/set timeout 60..3600\n/set length 4..10\n/set attempts 1..5\n/set ban 30..86400"
 }

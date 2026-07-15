@@ -1,1 +1,11 @@
 .env
+protectron.env
+.git
+doc/
+src/
+*.py
+Pipfile
+Pipfile.lock
+NotoSansCJKjp-Regular.otf
+docker-compose.yml
+README.md

@@ -7,5 +7,10 @@
     "not_for_you_warn": "It's not for you.",
     "pong_msg": "pong!\nI'm still here.",
     "join_owner_msg": "Hello!",
-    "required_admin_permission": "Reuqired admin permission. Bye!"
+    "required_admin_permission": "Reuqired admin permission. Bye!",
+    "retry_msg": "${user_title}, wrong. Try again.",
+    "admins_only_warn": "Admins only.",
+    "settings_msg": "Chat settings:\nlang: ${lang}\ntimeout: ${timeout} s\nlength: ${length}\nattempts: ${attempts}\nban: ${ban} s",
+    "set_ok_msg": "Done.",
+    "set_bad_value_msg": "Can't parse that. Usage:\n/set lang ru|en\n/set timeout 60..3600\n/set length 4..10\n/set attempts 1..5\n/set ban 30..86400"
 }

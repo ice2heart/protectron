@@ -1,10 +1,19 @@
-FROM python:3.9-alpine
+FROM golang:1.26-alpine AS builder
 
-RUN apk add --no-cache jpeg-dev zlib-dev freetype-dev 
-ADD . /protectron
-WORKDIR /protectron
-RUN apk add --no-cache --virtual .build-deps build-base linux-headers \
-    && pip install pipenv \
-    && cd /protectron; pipenv install \
-    && apk del .build-deps
-CMD [ "pipenv", "run", "python", "protectron.py" ]
+RUN apk add --no-cache ca-certificates
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /protectron ./cmd/protectron
+
+FROM scratch
+
+WORKDIR /app
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /protectron /app/protectron
+COPY templates/ /app/templates/
+
+USER 65534:65534
+ENTRYPOINT ["/app/protectron"]
