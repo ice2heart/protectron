@@ -89,3 +89,11 @@ func (b *Bundle) T(lang, key string, params map[string]string) string {
 		return ""
 	})
 }
+
+// Expand substitutes ${var} placeholders from params in an arbitrary string,
+// e.g. an admin-supplied greeting. Unknown placeholders render as empty.
+func Expand(text string, params map[string]string) string {
+	return os.Expand(text, func(name string) string {
+		return params[name]
+	})
+}

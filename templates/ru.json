@@ -10,7 +10,8 @@
     "required_admin_permission": "Мне нужны права администратора. Пока!",
     "retry_msg": "${user_title}, не вышло. Попробуй ещё раз.",
     "admins_only_warn": "Только для админов.",
-    "settings_msg": "Настройки чата:\nlang: ${lang}\ntimeout: ${timeout} сек\nlength: ${length}\nattempts: ${attempts}\nban: ${ban} сек",
+    "settings_msg": "Настройки чата:\nlang: ${lang}\ntimeout: ${timeout} сек\nlength: ${length}\nattempts: ${attempts}\nban: ${ban} сек\ngreeting: ${greeting}",
     "set_ok_msg": "Готово.",
-    "set_bad_value_msg": "Не понял. Использование:\n/set lang ru|en\n/set timeout 60..3600\n/set length 4..10\n/set attempts 1..5\n/set ban 30..86400"
+    "set_bad_value_msg": "Не понял. Использование:\n/set lang ru|en\n/set timeout 60..3600\n/set length 4..10\n/set attempts 1..5\n/set ban 30..86400\n/set greeting <текст|->",
+    "bot_added_help_msg": "Привет! Я слежу за новыми участниками и прошу их пройти капчу.\nЯзык чата по умолчанию — русский. Чтобы переключить на английский: /set lang en (обратно на русский: /set lang ru). Команду может использовать только администратор чата.\n\nHi! I watch for new members and ask them to solve a captcha.\nThe chat's default language is Russian. To switch to English: /set lang en (back to Russian: /set lang ru). Only a chat admin can use this command."
 }

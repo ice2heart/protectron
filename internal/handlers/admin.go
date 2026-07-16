@@ -97,12 +97,17 @@ func (h *Handlers) Settings(ctx context.Context, b *bot.Bot, update *models.Upda
 	if !ok {
 		return
 	}
+	greeting := settings.Greeting
+	if greeting == "" {
+		greeting = "-"
+	}
 	h.reply(ctx, b, msg, h.msgs.T(lang, "settings_msg", map[string]string{
 		"lang":     settings.Lang,
 		"timeout":  strconv.Itoa(settings.CaptchaTimeoutSec),
 		"length":   strconv.Itoa(settings.CaptchaLength),
 		"attempts": strconv.Itoa(settings.MaxAttempts),
 		"ban":      strconv.Itoa(settings.BanDurationSec),
+		"greeting": greeting,
 	}))
 }
 
@@ -128,22 +133,28 @@ func (h *Handlers) Set(ctx context.Context, b *bot.Bot, update *models.Update) {
 		h.reply(ctx, b, msg, h.msgs.T(lang, "set_bad_value_msg", nil))
 	}
 
-	fields := strings.Fields(msg.Text)
-	if len(fields) != 3 {
+	parts := strings.SplitN(msg.Text, " ", 3)
+	if len(parts) != 3 {
 		badValue()
 		return
 	}
-	key, value := fields[1], fields[2]
+	key, value := parts[1], parts[2]
 
 	var field string
 	var stored any
-	if key == "lang" {
+	switch {
+	case key == "lang":
 		if !h.msgs.Has(value) {
 			badValue()
 			return
 		}
 		field, stored = "lang", value
-	} else {
+	case key == "greeting":
+		if value == "-" {
+			value = ""
+		}
+		field, stored = "greeting", value
+	default:
 		spec, known := setKeys[key]
 		if !known {
 			badValue()

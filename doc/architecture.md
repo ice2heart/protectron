@@ -45,6 +45,7 @@ Single-instance deployment is assumed (long polling); sessions live in Mongo so 
   captcha_length: 8,
   max_attempts: 2,
   ban_duration_sec: 60,
+  greeting: "",               // admin-set success message override; "" ⇒ use success_msg template
   updated_at: ISODate
 }
 ```
@@ -160,8 +161,11 @@ Sender must be a chat administrator (checked via `getChatMember`; result cached 
 /set length <chars 4..10>
 /set attempts <1..5>
 /set ban <seconds 30..86400>
+/set greeting <text|->        custom success message (${user_title}, ${chat_title} supported); "-" resets to default
 /ping                        alive check (kept from today, any user)
 ```
+
+When the bot is added to a new chat, it posts a bilingual (English + Russian) help message explaining `/set lang ru|en`.
 
 ## Usage statistics
 
@@ -186,7 +190,7 @@ Access: the **super admin** (`ADMIN_ID` env — same id that is greeted instead 
 
 ## i18n
 
-`templates/ru.json` and `templates/en.json` are kept as-is; the Mako `${var}` placeholders are substituted with a Go `os.Expand`-style mapper, so the template files need no conversion. New keys needed: `retry_msg` (fresh attempt), `settings_msg`, `set_ok_msg`, `set_bad_value_msg`, `admins_only_warn`.
+`templates/ru.json` and `templates/en.json` are kept as-is; the Mako `${var}` placeholders are substituted with a Go `os.Expand`-style mapper, so the template files need no conversion. New keys needed: `retry_msg` (fresh attempt), `settings_msg`, `set_ok_msg`, `set_bad_value_msg`, `admins_only_warn`, `bot_added_help_msg` (sent once, in both languages, when the bot joins a chat).
 
 ## Configuration (env)
 

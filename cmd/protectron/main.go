@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -87,6 +88,7 @@ func run() error {
 
 	b, err := bot.New(cfg.APIToken,
 		bot.WithAllowedUpdates(bot.AllowedUpdates{"message", "callback_query", "chat_member"}),
+		bot.WithDefaultHandler(func(context.Context, *bot.Bot, *models.Update) {}),
 		bot.WithMessageTextHandler("/ping", bot.MatchTypePrefix, h.Ping),
 		// Note: handler patterns must not overlap ("/set " vs "/settings"),
 		// the framework matches them in random (map) order.

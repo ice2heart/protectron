@@ -12,6 +12,7 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	"github.com/ice2heart/protectron/internal/captcha"
+	"github.com/ice2heart/protectron/internal/i18n"
 	"github.com/ice2heart/protectron/internal/storage"
 )
 
@@ -36,7 +37,13 @@ func MatchLeftChatMember(update *models.Update) bool {
 func (h *Handlers) ChatMemberUpdate(ctx context.Context, b *bot.Bot, update *models.Update) {
 	upd := update.ChatMember
 	user := memberUser(upd.NewChatMember)
-	if user == nil || user.ID == b.ID() {
+	if user == nil {
+		return
+	}
+	if user.ID == b.ID() {
+		if !isMember(upd.OldChatMember) && isMember(upd.NewChatMember) {
+			h.send(ctx, b, upd.Chat.ID, h.msgs.T(i18n.FallbackLang, "bot_added_help_msg", nil))
+		}
 		return
 	}
 

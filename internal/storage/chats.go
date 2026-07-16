@@ -18,6 +18,7 @@ type ChatSettings struct {
 	CaptchaLength     int       `bson:"captcha_length"`
 	MaxAttempts       int       `bson:"max_attempts"`
 	BanDurationSec    int       `bson:"ban_duration_sec"`
+	Greeting          string    `bson:"greeting"`
 	UpdatedAt         time.Time `bson:"updated_at"`
 }
 
@@ -73,6 +74,7 @@ func (r *ChatRepo) Ensure(ctx context.Context, chatID int64, title string) (*Cha
 			{Key: "captcha_length", Value: d.CaptchaLength},
 			{Key: "max_attempts", Value: d.MaxAttempts},
 			{Key: "ban_duration_sec", Value: d.BanDurationSec},
+			{Key: "greeting", Value: d.Greeting},
 		}},
 	}
 	opts := options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After)
@@ -97,6 +99,7 @@ func (r *ChatRepo) SetField(ctx context.Context, chatID int64, field string, val
 		{"captcha_length", d.CaptchaLength},
 		{"max_attempts", d.MaxAttempts},
 		{"ban_duration_sec", d.BanDurationSec},
+		{"greeting", d.Greeting},
 	} {
 		if f.name != field {
 			onInsert = append(onInsert, bson.E{Key: f.name, Value: f.val})

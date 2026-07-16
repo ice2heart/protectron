@@ -116,10 +116,17 @@ func (h *Handlers) captchaPassed(ctx context.Context, b *bot.Bot, cq *models.Cal
 	if chatTitle == "" && cq.Message.Message != nil {
 		chatTitle = cq.Message.Message.Chat.Title
 	}
-	h.send(ctx, b, session.ChatID, h.msgs.T(lang, "success_msg", map[string]string{
+	params := map[string]string{
 		"user_title": userTitle(&cq.From),
 		"chat_title": chatTitle,
-	}))
+	}
+	text := settings.Greeting
+	if text == "" {
+		text = h.msgs.T(lang, "success_msg", params)
+	} else {
+		text = i18n.Expand(text, params)
+	}
+	h.send(ctx, b, session.ChatID, text)
 }
 
 func (h *Handlers) captchaRetry(ctx context.Context, b *bot.Bot, cq *models.CallbackQuery, session *storage.Session, settings *storage.ChatSettings) {
