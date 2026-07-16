@@ -20,6 +20,13 @@ import (
 	"github.com/ice2heart/protectron/internal/sweeper"
 )
 
+// Build metadata, set via -ldflags by goreleaser.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	if err := run(); err != nil {
 		slog.Error("fatal", "err", err)
@@ -35,6 +42,7 @@ func run() error {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: cfg.LogLevel,
 	})))
+	slog.Info("protectron", "version", version, "commit", commit, "date", date)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
