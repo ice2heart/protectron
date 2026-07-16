@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-telegram/bot"
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
@@ -35,6 +36,12 @@ func main() {
 }
 
 func run() error {
+	// Load a .env file if present so the bot can run outside Docker.
+	// A missing file is not an error (env vars may come from the environment).
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return err
