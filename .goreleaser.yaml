@@ -45,6 +45,8 @@ dockers_v2:
     dockerfile: Dockerfile
     platforms:
       - linux/amd64
+    # The default buildx "docker" driver can't attach attestations.
+    sbom: false
     # templates/ is loaded from disk at runtime, so include it in the build
     # context alongside the goreleaser-built binary.
     extra_files:
