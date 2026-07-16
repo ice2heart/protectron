@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: protectron
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: protectron
+    main: ./cmd/protectron
+    binary: protectron
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.CommitDate}}
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: protectron
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    # templates/ is loaded from disk at runtime (see cmd/protectron/main.go),
+    # so ship it alongside the binary.
+    files:
+      - src: templates/*
+        dst: templates
+      - README.md
+
+dockers_v2:
+  - id: protectron
+    images:
+      - "ice2heart/protectron"
+    dockerfile: Dockerfile
+    platforms:
+      - linux/amd64
+    # templates/ is loaded from disk at runtime, so include it in the build
+    # context alongside the goreleaser-built binary.
+    extra_files:
+      - templates
+    tags:
+      - "{{ .Version }}"
+      - "{{ .Major }}.{{ .Minor }}"
+      - "{{ .Major }}"
+      - "latest"
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
+
+release:
+  github:
+    owner: ice2heart
+    name: protectron
