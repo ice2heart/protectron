@@ -12,7 +12,6 @@ import (
 
 type MessageIDs struct {
 	Captcha int `bson:"captcha"`
-	Join    int `bson:"join,omitempty"`
 }
 
 type Session struct {
@@ -137,24 +136,6 @@ func (r *SessionRepo) NewAttempt(ctx context.Context, id string, answer []string
 		}},
 		{Key: "$inc", Value: bson.D{{Key: "attempt", Value: 1}}},
 	})
-}
-
-// SetJoinMessageID records the join service message for later cleanup. The
-// service message only carries (chat, user), not a session id, hence the key.
-func (r *SessionRepo) SetJoinMessageID(ctx context.Context, chatID, userID int64, messageID int) error {
-	res, err := r.coll.UpdateOne(ctx, bson.D{
-		{Key: "chat_id", Value: chatID},
-		{Key: "user_id", Value: userID},
-	}, bson.D{
-		{Key: "$set", Value: bson.D{{Key: "message_ids.join", Value: messageID}}},
-	})
-	if err != nil {
-		return err
-	}
-	if res.MatchedCount == 0 {
-		return ErrNotFound
-	}
-	return nil
 }
 
 func (r *SessionRepo) Delete(ctx context.Context, id string) error {
