@@ -77,7 +77,7 @@ func (b *Bundle) T(lang, key string, params map[string]string) string {
 		if fb, fbOK := b.langs[FallbackLang][key]; fbOK {
 			tmpl = fb
 		} else {
-			slog.Error("i18n: missing template key", "lang", lang, "key", key)
+			slog.Error("missing template key", "lang", lang, "key", key)
 			return ""
 		}
 	}
@@ -85,7 +85,7 @@ func (b *Bundle) T(lang, key string, params map[string]string) string {
 		if v, ok := params[name]; ok {
 			return v
 		}
-		slog.Error("i18n: missing template param", "lang", lang, "key", key, "param", name)
+		slog.Error("missing template param", "lang", lang, "key", key, "param", name)
 		return ""
 	})
 }

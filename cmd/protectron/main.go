@@ -50,7 +50,7 @@ func run() error {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: cfg.LogLevel,
 	})))
-	slog.Info("protectron", "version", version, "commit", commit, "date", date)
+	slog.Info("starting", "version", version, "commit", commit, "date", date)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

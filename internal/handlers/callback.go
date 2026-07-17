@@ -41,10 +41,12 @@ func (h *Handlers) Callback(ctx context.Context, b *bot.Bot, update *models.Upda
 
 	settings, err := h.store.Chats.Get(ctx, session.ChatID)
 	if err != nil {
-		slog.Error("chat settings load failed", "session_id", sessionID, "err", err)
+		slog.Error("chat settings load failed", "debug_id", session.DebugID, "err", err)
 		settings = storage.DefaultChatSettings(session.ChatID)
 	}
 	lang := h.lang(settings)
+	// PopInput/PushInput reassign session (nil on error), so keep the id.
+	debugID := session.DebugID
 
 	// Reject presses on a stale keyboard (e.g. the pre-retry captcha).
 	if cq.Message.Message == nil || cq.Message.Message.ID != session.MessageIDs.Captcha {
@@ -59,11 +61,11 @@ func (h *Handlers) Callback(ctx context.Context, b *bot.Bot, update *models.Upda
 	if captcha.IsBackspace(token) {
 		session, err = h.store.Sessions.PopInput(ctx, sessionID)
 		if err != nil {
-			slog.Error("backspace failed", "session_id", sessionID, "err", err)
+			slog.Error("backspace failed", "debug_id", debugID, "err", err)
 			answer(ctx, b, cq.ID, h.msgs.T(lang, "something_gone_wrong_warn", nil))
 			return
 		}
-		slog.Info("backspace", "debug_id", session.DebugID)
+		slog.Info("captcha backspace", "debug_id", debugID, "input_len", len(session.Input))
 		answer(ctx, b, cq.ID, session.InputString())
 		return
 	}
@@ -76,11 +78,11 @@ func (h *Handlers) Callback(ctx context.Context, b *bot.Bot, update *models.Upda
 
 	session, err = h.store.Sessions.PushInput(ctx, sessionID, char)
 	if err != nil {
-		slog.Error("input push failed", "session_id", sessionID, "err", err)
+		slog.Error("input push failed", "debug_id", debugID, "err", err)
 		answer(ctx, b, cq.ID, h.msgs.T(lang, "something_gone_wrong_warn", nil))
 		return
 	}
-	slog.Info("press", "debug_id", session.DebugID, "input_len", len(session.Input))
+	slog.Info("captcha press", "debug_id", debugID, "input_len", len(session.Input))
 
 	if !session.InputComplete() {
 		answer(ctx, b, cq.ID, session.InputString())
@@ -102,7 +104,7 @@ func (h *Handlers) captchaPassed(ctx context.Context, b *bot.Bot, cq *models.Cal
 	slog.Info("captcha passed", "debug_id", session.DebugID)
 
 	if err := h.store.Sessions.Delete(ctx, session.ID); err != nil {
-		slog.Error("session delete failed", "session_id", session.ID, "err", err)
+		slog.Error("session delete failed", "debug_id", session.DebugID, "err", err)
 	}
 	h.stat(ctx, session.ChatID, storage.StatPassed)
 	answer(ctx, b, cq.ID, "✅")
@@ -131,11 +133,11 @@ func (h *Handlers) captchaPassed(ctx context.Context, b *bot.Bot, cq *models.Cal
 
 func (h *Handlers) captchaRetry(ctx context.Context, b *bot.Bot, cq *models.CallbackQuery, session *storage.Session, settings *storage.ChatSettings) {
 	lang := h.lang(settings)
-	slog.Info("captcha wrong, retrying", "debug_id", session.DebugID, "attempt", session.Attempt)
+	slog.Info("captcha retry", "debug_id", session.DebugID, "attempt", session.Attempt)
 
 	c, messageID, err := h.sendCaptcha(ctx, b, settings, session.ID, "retry_msg", &cq.From)
 	if err != nil {
-		slog.Error("retry captcha send failed", "debug_id", session.DebugID, "err", err)
+		slog.Error("send captcha failed", "debug_id", session.DebugID, "attempt", session.Attempt, "err", err)
 		answer(ctx, b, cq.ID, h.msgs.T(lang, "something_gone_wrong_warn", nil))
 		return
 	}
@@ -143,7 +145,7 @@ func (h *Handlers) captchaRetry(ctx context.Context, b *bot.Bot, cq *models.Call
 	oldCaptchaMessage := session.MessageIDs.Captcha
 	expiresAt := time.Now().UTC().Add(settings.CaptchaTimeout())
 	if _, err := h.store.Sessions.NewAttempt(ctx, session.ID, c.Answer, c.Buttons, messageID, expiresAt); err != nil {
-		slog.Error("attempt swap failed", "debug_id", session.DebugID, "err", err)
+		slog.Error("session attempt update failed", "debug_id", session.DebugID, "err", err)
 		deleteMessages(ctx, b, session.ChatID, messageID)
 		answer(ctx, b, cq.ID, h.msgs.T(lang, "something_gone_wrong_warn", nil))
 		return
@@ -155,10 +157,10 @@ func (h *Handlers) captchaRetry(ctx context.Context, b *bot.Bot, cq *models.Call
 func (h *Handlers) captchaFailed(ctx context.Context, b *bot.Bot, cq *models.CallbackQuery, session *storage.Session, settings *storage.ChatSettings) {
 	lang := h.lang(settings)
 	until := time.Now().Add(settings.BanDuration())
-	slog.Info("captcha failed, banning", "debug_id", session.DebugID, "until", until)
+	slog.Info("captcha failed", "debug_id", session.DebugID, "until", until)
 
 	if err := h.store.Sessions.Delete(ctx, session.ID); err != nil {
-		slog.Error("session delete failed", "session_id", session.ID, "err", err)
+		slog.Error("session delete failed", "debug_id", session.DebugID, "err", err)
 	}
 	h.stat(ctx, session.ChatID, storage.StatFailed)
 	answer(ctx, b, cq.ID, h.msgs.T(lang, "fail_msg", nil))

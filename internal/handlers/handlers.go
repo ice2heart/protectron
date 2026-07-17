@@ -39,7 +39,7 @@ func (h *Handlers) lang(settings *storage.ChatSettings) string {
 
 func (h *Handlers) Ping(ctx context.Context, b *bot.Bot, update *models.Update) {
 	msg := update.Message
-	slog.Info("ping requested", "chat_id", msg.Chat.ID, "chat_title", msg.Chat.Title)
+	slog.Info("ping requested", "chat_id", msg.Chat.ID, "title", msg.Chat.Title)
 	settings, err := h.store.Chats.Get(ctx, msg.Chat.ID)
 	if err != nil {
 		slog.Error("chat settings load failed", "chat_id", msg.Chat.ID, "err", err)
@@ -53,6 +53,6 @@ func (h *Handlers) Ping(ctx context.Context, b *bot.Bot, update *models.Update) 
 		},
 	})
 	if err != nil {
-		slog.Error("ping reply failed", "chat_id", msg.Chat.ID, "err", err)
+		slog.Error("reply failed", "chat_id", msg.Chat.ID, "err", err)
 	}
 }

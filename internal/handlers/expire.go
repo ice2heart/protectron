@@ -30,14 +30,14 @@ func (h *Handlers) ExpireSession(ctx context.Context, b *bot.Bot, sessionID stri
 
 	settings, err := h.store.Chats.Get(ctx, session.ChatID)
 	if err != nil {
-		slog.Error("chat settings load failed", "session_id", sessionID, "err", err)
+		slog.Error("chat settings load failed", "debug_id", session.DebugID, "err", err)
 		settings = storage.DefaultChatSettings(session.ChatID)
 	}
 	until := time.Now().Add(settings.BanDuration())
-	slog.Info("captcha timeout, kick and clean", "debug_id", session.DebugID, "until", until)
+	slog.Info("captcha expired", "debug_id", session.DebugID, "until", until)
 
 	if err := h.store.Sessions.Delete(ctx, session.ID); err != nil {
-		slog.Error("session delete failed", "session_id", session.ID, "err", err)
+		slog.Error("session delete failed", "debug_id", session.DebugID, "err", err)
 		return
 	}
 	h.stat(ctx, session.ChatID, storage.StatTimeouts)
@@ -48,7 +48,7 @@ func (h *Handlers) ExpireSession(ctx context.Context, b *bot.Bot, sessionID stri
 			UntilDate: int(until.Unix()),
 		})
 	}); err != nil {
-		slog.Error("timeout ban failed", "debug_id", session.DebugID, "err", err)
+		slog.Error("ban failed", "debug_id", session.DebugID, "err", err)
 	}
 	deleteSessionMessages(ctx, b, session)
 }

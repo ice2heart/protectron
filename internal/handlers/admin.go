@@ -59,7 +59,7 @@ func (h *Handlers) isChatAdmin(ctx context.Context, b *bot.Bot, chatID, userID i
 	}
 	m, err := b.GetChatMember(ctx, &bot.GetChatMemberParams{ChatID: chatID, UserID: userID})
 	if err != nil {
-		slog.Error("getChatMember failed", "chat_id", chatID, "user_id", userID, "err", err)
+		slog.Error("admin check failed", "chat_id", chatID, "user_id", userID, "err", err)
 		return false
 	}
 	isAdmin := m.Type == models.ChatMemberTypeOwner || m.Type == models.ChatMemberTypeAdministrator

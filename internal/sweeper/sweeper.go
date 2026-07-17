@@ -36,7 +36,7 @@ func Run(ctx context.Context, interval time.Duration, store *storage.Store, b *b
 func sweep(ctx context.Context, store *storage.Store, b *bot.Bot, h *handlers.Handlers) {
 	expired, err := store.Sessions.ListExpired(ctx, time.Now().UTC())
 	if err != nil {
-		slog.Error("sweeper: list expired failed", "err", err)
+		slog.Error("list expired sessions failed", "err", err)
 		return
 	}
 	for _, session := range expired {

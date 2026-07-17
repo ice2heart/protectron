@@ -84,18 +84,18 @@ func (h *Handlers) handleJoin(ctx context.Context, b *bot.Bot, upd *models.ChatM
 		return
 	}
 
-	slog.Info("start captcha", "debug_id", debugID, "chat_id", chatID, "user_id", user.ID)
+	slog.Info("captcha started", "debug_id", debugID, "chat_id", chatID, "user_id", user.ID)
 	if err := mute(ctx, b, chatID, user.ID); err != nil {
 		switch {
 		case notEnoughRights(err):
-			slog.Warn("can't restrict members, leaving chat", "debug_id", debugID, "err", err)
+			slog.Warn("no restrict permission, leaving chat", "debug_id", debugID, "err", err)
 			h.send(ctx, b, chatID, h.msgs.T(lang, "required_admin_permission", nil))
 			if _, err := b.LeaveChat(ctx, &bot.LeaveChatParams{ChatID: chatID}); err != nil {
 				slog.Error("leave chat failed", "debug_id", debugID, "err", err)
 			}
 		case userGone(err):
 			// Joined and left again before we got to them; nothing to captcha.
-			slog.Info("user already left before captcha", "debug_id", debugID)
+			slog.Info("captcha skipped", "debug_id", debugID, "reason", "user already left")
 		default:
 			slog.Error("mute failed", "debug_id", debugID, "err", err)
 		}
@@ -196,7 +196,7 @@ func (h *Handlers) LeftChatMember(ctx context.Context, b *bot.Bot, update *model
 		}
 		return
 	}
-	slog.Info("left mid-captcha, cleaning", "debug_id", session.DebugID)
+	slog.Info("captcha cancelled", "debug_id", session.DebugID, "reason", "left chat")
 	h.stat(ctx, msg.Chat.ID, storage.StatLeaves)
 	deleteSessionMessages(ctx, b, session)
 	deleteMessages(ctx, b, msg.Chat.ID, msg.ID)
@@ -211,7 +211,7 @@ func (h *Handlers) cancelSession(ctx context.Context, b *bot.Bot, chatID, userID
 		}
 		return
 	}
-	slog.Info("session cancelled", "debug_id", session.DebugID, "reason", reason)
+	slog.Info("captcha cancelled", "debug_id", session.DebugID, "reason", reason)
 	h.stat(ctx, chatID, storage.StatLeaves)
 	deleteSessionMessages(ctx, b, session)
 }
