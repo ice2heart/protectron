@@ -161,7 +161,8 @@ func (h *Handlers) sendCaptcha(ctx context.Context, b *bot.Bot, settings *storag
 				Filename: "captcha.png",
 				Data:     bytes.NewReader(c.Image),
 			},
-			Caption:     h.msgs.T(lang, captionKey, map[string]string{"user_title": userTitle(user)}),
+			Caption:     h.msgs.T(lang, captionKey, map[string]string{"user_title": userMention(user)}),
+			ParseMode:   models.ParseModeMarkdownV1,
 			ReplyMarkup: c.Keyboard(sessionID),
 		})
 	})
@@ -171,17 +172,11 @@ func (h *Handlers) sendCaptcha(ctx context.Context, b *bot.Bot, settings *storag
 	return c, msg.ID, nil
 }
 
-// NewChatMembers only records the join service message id for cleanup; the
-// captcha itself is triggered by the chat_member update, which can arrive
-// in either order relative to this message.
+// NewChatMembers deletes the "joined the group" service message right away;
+// the captcha itself is triggered by the chat_member update.
 func (h *Handlers) NewChatMembers(ctx context.Context, b *bot.Bot, update *models.Update) {
 	msg := update.Message
-	for _, user := range msg.NewChatMembers {
-		err := h.store.Sessions.SetJoinMessageID(ctx, msg.Chat.ID, user.ID, msg.ID)
-		if err != nil && !errors.Is(err, storage.ErrNotFound) {
-			slog.Error("record join message failed", "chat_id", msg.Chat.ID, "user_id", user.ID, "err", err)
-		}
-	}
+	deleteMessages(ctx, b, msg.Chat.ID, msg.ID)
 }
 
 // LeftChatMember cleans up when the leave service message arrives while a
@@ -220,6 +215,16 @@ func (h *Handlers) cancelSession(ctx context.Context, b *bot.Bot, chatID, userID
 func (h *Handlers) send(ctx context.Context, b *bot.Bot, chatID int64, text string) {
 	_, err := tgCall(ctx, "sendMessage", func(ctx context.Context) (*models.Message, error) {
 		return b.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: text})
+	})
+	if err != nil {
+		slog.Error("send message failed", "chat_id", chatID, "err", err)
+	}
+}
+
+// sendMarkdown posts a legacy-Markdown message, logging failures.
+func (h *Handlers) sendMarkdown(ctx context.Context, b *bot.Bot, chatID int64, text string) {
+	_, err := tgCall(ctx, "sendMessage", func(ctx context.Context) (*models.Message, error) {
+		return b.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: text, ParseMode: models.ParseModeMarkdownV1})
 	})
 	if err != nil {
 		slog.Error("send message failed", "chat_id", chatID, "err", err)

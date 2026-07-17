@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -83,6 +84,16 @@ func userTitle(u *models.User) string {
 	return name
 }
 
+// mdEscaper escapes the characters that are special in legacy Markdown
+// (the only ones the Bot API allows escaping in that mode).
+var mdEscaper = strings.NewReplacer("_", "\\_", "*", "\\*", "`", "\\`", "[", "\\[")
+
+// userMention renders a clickable inline mention (tg://user?id=…) for
+// messages sent with Markdown parse mode.
+func userMention(u *models.User) string {
+	return fmt.Sprintf("[%s](tg://user?id=%d)", mdEscaper.Replace(userTitle(u)), u.ID)
+}
+
 // answer replies to a callback query; failures are only logged.
 func answer(ctx context.Context, b *bot.Bot, queryID, text string) {
 	_, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
@@ -111,7 +122,7 @@ func deleteMessages(ctx context.Context, b *bot.Bot, chatID int64, messageIDs ..
 
 // deleteSessionMessages cleans everything a session tracked.
 func deleteSessionMessages(ctx context.Context, b *bot.Bot, s *storage.Session) {
-	deleteMessages(ctx, b, s.ChatID, s.MessageIDs.Captcha, s.MessageIDs.Join)
+	deleteMessages(ctx, b, s.ChatID, s.MessageIDs.Captcha)
 }
 
 // memberUser extracts the affected user from a chat member state.

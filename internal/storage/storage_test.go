@@ -248,35 +248,11 @@ func TestNewAttempt(t *testing.T) {
 	if got.Answer[0] != "ж" || got.Buttons["11112222"] != "ж" {
 		t.Errorf("answer/buttons not swapped: %+v", got)
 	}
-	if got.MessageIDs.Captcha != 200 || got.MessageIDs.Join != 0 {
+	if got.MessageIDs.Captcha != 200 {
 		t.Errorf("message ids: %+v", got.MessageIDs)
 	}
 	if !got.ExpiresAt.Equal(newExpiry) {
 		t.Errorf("expiry: %v want %v", got.ExpiresAt, newExpiry)
-	}
-}
-
-func TestJoinMessageID(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	sess := testSession("0000000000000030", 1, 2)
-	if err := s.Sessions.Insert(ctx, sess); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Sessions.SetJoinMessageID(ctx, 1, 2, 99); err != nil {
-		t.Fatal(err)
-	}
-	got, err := s.Sessions.Get(ctx, sess.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.MessageIDs.Join != 99 || got.MessageIDs.Captcha != 100 {
-		t.Errorf("message ids: %+v", got.MessageIDs)
-	}
-
-	if err := s.Sessions.SetJoinMessageID(ctx, 1, 999, 99); !errors.Is(err, ErrNotFound) {
-		t.Errorf("no session: got %v", err)
 	}
 }
 
