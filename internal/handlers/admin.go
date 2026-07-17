@@ -179,10 +179,12 @@ func (h *Handlers) Set(ctx context.Context, b *bot.Bot, update *models.Update) {
 
 // reply answers in-thread, logging failures.
 func (h *Handlers) reply(ctx context.Context, b *bot.Bot, msg *models.Message, text string) {
-	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:          msg.Chat.ID,
-		Text:            text,
-		ReplyParameters: &models.ReplyParameters{MessageID: msg.ID},
+	_, err := tgCall(ctx, "sendMessage(reply)", func(ctx context.Context) (*models.Message, error) {
+		return b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:          msg.Chat.ID,
+			Text:            text,
+			ReplyParameters: &models.ReplyParameters{MessageID: msg.ID},
+		})
 	})
 	if err != nil {
 		slog.Error("reply failed", "chat_id", msg.Chat.ID, "err", err)

@@ -163,10 +163,12 @@ func (h *Handlers) captchaFailed(ctx context.Context, b *bot.Bot, cq *models.Cal
 	h.stat(ctx, session.ChatID, storage.StatFailed)
 	answer(ctx, b, cq.ID, h.msgs.T(lang, "fail_msg", nil))
 
-	if _, err := b.BanChatMember(ctx, &bot.BanChatMemberParams{
-		ChatID:    session.ChatID,
-		UserID:    session.UserID,
-		UntilDate: int(until.Unix()),
+	if _, err := tgCall(ctx, "banChatMember", func(ctx context.Context) (bool, error) {
+		return b.BanChatMember(ctx, &bot.BanChatMemberParams{
+			ChatID:    session.ChatID,
+			UserID:    session.UserID,
+			UntilDate: int(until.Unix()),
+		})
 	}); err != nil {
 		slog.Error("ban failed", "debug_id", session.DebugID, "err", err)
 	}

@@ -75,11 +75,11 @@ func TestChatDefaultsAndEnsure(t *testing.T) {
 		t.Errorf("defaults: got %+v want %+v", got, want)
 	}
 
-	ensured, err := s.Chats.Ensure(ctx, 42, "My Chat")
+	ensured, err := s.Chats.Ensure(ctx, 42, "My Chat", "mychat")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ensured.Title != "My Chat" || ensured.Lang != "ru" || ensured.CaptchaLength != 8 {
+	if ensured.Title != "My Chat" || ensured.Username != "mychat" || ensured.Lang != "ru" || ensured.CaptchaLength != 8 {
 		t.Errorf("ensure: got %+v", ensured)
 	}
 

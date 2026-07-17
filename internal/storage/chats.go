@@ -13,6 +13,7 @@ import (
 type ChatSettings struct {
 	ID                int64     `bson:"_id"`
 	Title             string    `bson:"title"`
+	Username          string    `bson:"username"`
 	Lang              string    `bson:"lang"`
 	CaptchaTimeoutSec int       `bson:"captcha_timeout_sec"`
 	CaptchaLength     int       `bson:"captcha_length"`
@@ -60,12 +61,13 @@ func (r *ChatRepo) Get(ctx context.Context, chatID int64) (*ChatSettings, error)
 }
 
 // Ensure upserts the chat document (defaults on insert) and refreshes the
-// denormalized title. Returns the resulting settings.
-func (r *ChatRepo) Ensure(ctx context.Context, chatID int64, title string) (*ChatSettings, error) {
+// denormalized title and public username. Returns the resulting settings.
+func (r *ChatRepo) Ensure(ctx context.Context, chatID int64, title, username string) (*ChatSettings, error) {
 	d := DefaultChatSettings(chatID)
 	update := bson.D{
 		{Key: "$set", Value: bson.D{
 			{Key: "title", Value: title},
+			{Key: "username", Value: username},
 			{Key: "updated_at", Value: time.Now().UTC()},
 		}},
 		{Key: "$setOnInsert", Value: bson.D{

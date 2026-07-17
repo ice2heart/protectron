@@ -41,10 +41,12 @@ func (h *Handlers) ExpireSession(ctx context.Context, b *bot.Bot, sessionID stri
 		return
 	}
 	h.stat(ctx, session.ChatID, storage.StatTimeouts)
-	if _, err := b.BanChatMember(ctx, &bot.BanChatMemberParams{
-		ChatID:    session.ChatID,
-		UserID:    session.UserID,
-		UntilDate: int(until.Unix()),
+	if _, err := tgCall(ctx, "banChatMember(timeout)", func(ctx context.Context) (bool, error) {
+		return b.BanChatMember(ctx, &bot.BanChatMemberParams{
+			ChatID:    session.ChatID,
+			UserID:    session.UserID,
+			UntilDate: int(until.Unix()),
+		})
 	}); err != nil {
 		slog.Error("timeout ban failed", "debug_id", session.DebugID, "err", err)
 	}

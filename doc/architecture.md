@@ -40,6 +40,7 @@ Single-instance deployment is assumed (long polling); sessions live in Mongo so 
 {
   _id: <chat_id int64>,
   title: "…",                 // denormalized, refreshed on activity
+  username: "…",              // public @username, if any; refreshed with title
   lang: "ru",                 // template + charset selection
   captcha_timeout_sec: 300,
   captcha_length: 8,
@@ -186,7 +187,11 @@ Per-chat, per-day counters in a `stats` collection, updated with `$inc` upserts 
 
 Counter writes are fire-and-forget: a stats failure is logged and never breaks a captcha flow.
 
-Access: the **super admin** (`ADMIN_ID` env — same id that is greeted instead of captcha'd) sends `/stats` to the bot in a **private chat**. Reply: per-chat totals (all time + last 7 days) across all chats the bot serves. Anyone else gets `admins_only_warn`. In-group `/stats` is not offered; the data spans chats, so it belongs to the owner only.
+Access: the **super admin** (`ADMIN_ID` env — same id that is greeted instead of captcha'd) sends `/stats` to the bot in a **private chat**. Reply: per-chat totals (all time + last 7 days) across all chats the bot serves; each chat line shows the title plus a `https://t.me/<username>` link when the chat has a public username. Anyone else gets `admins_only_warn`. In-group `/stats` is not offered; the data spans chats, so it belongs to the owner only.
+
+## Telegram API resilience
+
+Every state-changing API call (restrict, sendPhoto, ban, sendMessage, delete) goes through a retry helper: up to 3 attempts with 1s/2s backoff on transient failures (network timeouts, 5xx); a 429 waits the server-provided `retry_after` (capped at 30s). Bad-request-class errors (`bad request`, `forbidden`, `unauthorized`, `not found`, `conflict`) are never retried. Restricting a user who already left the chat comes back as `Bad Request: bots can't add new chat members` — the join handler recognizes that (and `USER_NOT_PARTICIPANT` variants) and skips the captcha quietly instead of logging an error.
 
 ## i18n
 

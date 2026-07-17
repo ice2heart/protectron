@@ -30,19 +30,23 @@ var unmutedPermissions = &models.ChatPermissions{
 }
 
 func mute(ctx context.Context, b *bot.Bot, chatID, userID int64) error {
-	_, err := b.RestrictChatMember(ctx, &bot.RestrictChatMemberParams{
-		ChatID:      chatID,
-		UserID:      userID,
-		Permissions: mutedPermissions,
+	_, err := tgCall(ctx, "restrictChatMember(mute)", func(ctx context.Context) (bool, error) {
+		return b.RestrictChatMember(ctx, &bot.RestrictChatMemberParams{
+			ChatID:      chatID,
+			UserID:      userID,
+			Permissions: mutedPermissions,
+		})
 	})
 	return err
 }
 
 func unmute(ctx context.Context, b *bot.Bot, chatID, userID int64) error {
-	_, err := b.RestrictChatMember(ctx, &bot.RestrictChatMemberParams{
-		ChatID:      chatID,
-		UserID:      userID,
-		Permissions: unmutedPermissions,
+	_, err := tgCall(ctx, "restrictChatMember(unmute)", func(ctx context.Context) (bool, error) {
+		return b.RestrictChatMember(ctx, &bot.RestrictChatMemberParams{
+			ChatID:      chatID,
+			UserID:      userID,
+			Permissions: unmutedPermissions,
+		})
 	})
 	return err
 }
@@ -51,6 +55,20 @@ func unmute(ctx context.Context, b *bot.Bot, chatID, userID int64) error {
 // chat member" bad request.
 func notEnoughRights(err error) bool {
 	return err != nil && strings.Contains(strings.ToLower(err.Error()), "not enough rights")
+}
+
+// userGone matches the bad requests telegram returns when restricting a user
+// who already left the chat ("bots can't add new chat members": restricting a
+// non-member would amount to re-adding them).
+func userGone(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "can't add new chat members") ||
+		strings.Contains(msg, "user_not_participant") ||
+		strings.Contains(msg, "user not found") ||
+		strings.Contains(msg, "participant_id_invalid")
 }
 
 // userTitle renders a user the way the old bot's `mention` did, in plain text.
@@ -82,7 +100,10 @@ func deleteMessages(ctx context.Context, b *bot.Bot, chatID int64, messageIDs ..
 		if id == 0 {
 			continue
 		}
-		if _, err := b.DeleteMessage(ctx, &bot.DeleteMessageParams{ChatID: chatID, MessageID: id}); err != nil {
+		_, err := tgCall(ctx, "deleteMessage", func(ctx context.Context) (bool, error) {
+			return b.DeleteMessage(ctx, &bot.DeleteMessageParams{ChatID: chatID, MessageID: id})
+		})
+		if err != nil {
 			slog.Debug("delete message failed", "chat_id", chatID, "message_id", id, "err", err)
 		}
 	}

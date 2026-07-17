@@ -68,7 +68,7 @@ func (h *Handlers) handleJoin(ctx context.Context, b *bot.Bot, upd *models.ChatM
 	chatID := upd.Chat.ID
 	debugID := fmt.Sprintf("%s-(%s)", upd.Chat.Title, userTitle(user))
 
-	settings, err := h.store.Chats.Ensure(ctx, chatID, upd.Chat.Title)
+	settings, err := h.store.Chats.Ensure(ctx, chatID, upd.Chat.Title, upd.Chat.Username)
 	if err != nil {
 		slog.Error("chat settings ensure failed, using defaults", "debug_id", debugID, "err", err)
 		settings = storage.DefaultChatSettings(chatID)
@@ -86,15 +86,19 @@ func (h *Handlers) handleJoin(ctx context.Context, b *bot.Bot, upd *models.ChatM
 
 	slog.Info("start captcha", "debug_id", debugID, "chat_id", chatID, "user_id", user.ID)
 	if err := mute(ctx, b, chatID, user.ID); err != nil {
-		if notEnoughRights(err) {
+		switch {
+		case notEnoughRights(err):
 			slog.Warn("can't restrict members, leaving chat", "debug_id", debugID, "err", err)
 			h.send(ctx, b, chatID, h.msgs.T(lang, "required_admin_permission", nil))
 			if _, err := b.LeaveChat(ctx, &bot.LeaveChatParams{ChatID: chatID}); err != nil {
 				slog.Error("leave chat failed", "debug_id", debugID, "err", err)
 			}
-			return
+		case userGone(err):
+			// Joined and left again before we got to them; nothing to captcha.
+			slog.Info("user already left before captcha", "debug_id", debugID)
+		default:
+			slog.Error("mute failed", "debug_id", debugID, "err", err)
 		}
-		slog.Error("mute failed", "debug_id", debugID, "err", err)
 		return
 	}
 
@@ -149,14 +153,17 @@ func (h *Handlers) sendCaptcha(ctx context.Context, b *bot.Bot, settings *storag
 	if err != nil {
 		return nil, 0, err
 	}
-	msg, err := b.SendPhoto(ctx, &bot.SendPhotoParams{
-		ChatID: settings.ID,
-		Photo: &models.InputFileUpload{
-			Filename: "captcha.png",
-			Data:     bytes.NewReader(c.Image),
-		},
-		Caption:     h.msgs.T(lang, captionKey, map[string]string{"user_title": userTitle(user)}),
-		ReplyMarkup: c.Keyboard(sessionID),
+	msg, err := tgCall(ctx, "sendPhoto(captcha)", func(ctx context.Context) (*models.Message, error) {
+		// The reader is rebuilt per attempt: a failed try may have consumed it.
+		return b.SendPhoto(ctx, &bot.SendPhotoParams{
+			ChatID: settings.ID,
+			Photo: &models.InputFileUpload{
+				Filename: "captcha.png",
+				Data:     bytes.NewReader(c.Image),
+			},
+			Caption:     h.msgs.T(lang, captionKey, map[string]string{"user_title": userTitle(user)}),
+			ReplyMarkup: c.Keyboard(sessionID),
+		})
 	})
 	if err != nil {
 		return nil, 0, err
@@ -211,7 +218,10 @@ func (h *Handlers) cancelSession(ctx context.Context, b *bot.Bot, chatID, userID
 
 // send posts a plain message, logging failures.
 func (h *Handlers) send(ctx context.Context, b *bot.Bot, chatID int64, text string) {
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: text}); err != nil {
+	_, err := tgCall(ctx, "sendMessage", func(ctx context.Context) (*models.Message, error) {
+		return b.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: text})
+	})
+	if err != nil {
 		slog.Error("send message failed", "chat_id", chatID, "err", err)
 	}
 }

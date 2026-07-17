@@ -63,15 +63,20 @@ func (h *Handlers) formatStats(ctx context.Context, allTime, lastWeek []storage.
 	var sb strings.Builder
 	sb.WriteString("Usage stats — all time (last 7 days):\n")
 	for _, t := range allTime {
-		title := ""
+		title, username := "", ""
 		if settings, err := h.store.Chats.Get(ctx, t.ChatID); err == nil {
 			title = settings.Title
+			username = settings.Username
 		}
 		if title == "" {
 			title = "?"
 		}
 		w := week[t.ChatID]
-		fmt.Fprintf(&sb, "\n%s (%d)\n", title, t.ChatID)
+		if username != "" {
+			fmt.Fprintf(&sb, "\n%s — https://t.me/%s (%d)\n", title, username, t.ChatID)
+		} else {
+			fmt.Fprintf(&sb, "\n%s (%d)\n", title, t.ChatID)
+		}
 		fmt.Fprintf(&sb, "  joins: %d (%d)\n", t.Joins, w.Joins)
 		fmt.Fprintf(&sb, "  passed: %d (%d)\n", t.Passed, w.Passed)
 		fmt.Fprintf(&sb, "  failed: %d (%d)\n", t.Failed, w.Failed)
