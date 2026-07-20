@@ -93,7 +93,34 @@ func (b *Bundle) T(lang, key string, params map[string]string) string {
 // Expand substitutes ${var} placeholders from params in an arbitrary string,
 // e.g. an admin-supplied greeting. Unknown placeholders render as empty.
 func Expand(text string, params map[string]string) string {
-	return os.Expand(text, func(name string) string {
-		return params[name]
-	})
+	return ExpandFunc(text, params, nil)
+}
+
+// ExpandFunc is Expand with a hook applied to the literal spans only, leaving
+// substituted values untouched. Callers that must escape admin-supplied text
+// need this: escaping the whole string first would mangle the ${var} syntax
+// itself (e.g. Markdown turns ${user_title} into ${user\_title}, which no
+// longer matches any param), so the escaping has to skip the placeholders.
+func ExpandFunc(text string, params map[string]string, literal func(string) string) string {
+	if literal == nil {
+		literal = func(s string) string { return s }
+	}
+	var b strings.Builder
+	rest := text
+	for {
+		i := strings.Index(rest, "${")
+		if i < 0 {
+			break
+		}
+		j := strings.Index(rest[i:], "}")
+		if j < 0 {
+			break
+		}
+		name := rest[i+2 : i+j]
+		b.WriteString(literal(rest[:i]))
+		b.WriteString(params[name])
+		rest = rest[i+j+1:]
+	}
+	b.WriteString(literal(rest))
+	return b.String()
 }

@@ -118,19 +118,7 @@ func (h *Handlers) captchaPassed(ctx context.Context, b *bot.Bot, cq *models.Cal
 	if chatTitle == "" && cq.Message.Message != nil {
 		chatTitle = cq.Message.Message.Chat.Title
 	}
-	params := map[string]string{
-		"user_title": userMention(&cq.From),
-		"chat_title": mdEscaper.Replace(chatTitle),
-	}
-	text := settings.Greeting
-	if text == "" {
-		text = h.msgs.T(lang, "success_msg", params)
-	} else {
-		// Custom greetings are plain text: escape before expanding so the
-		// mention link is the only markup in the message.
-		text = i18n.Expand(mdEscaper.Replace(text), params)
-	}
-	h.sendMarkdown(ctx, b, session.ChatID, text)
+	h.sendMarkdown(ctx, b, session.ChatID, h.renderGreeting(settings, lang, &cq.From, chatTitle))
 }
 
 func (h *Handlers) captchaRetry(ctx context.Context, b *bot.Bot, cq *models.CallbackQuery, session *storage.Session, settings *storage.ChatSettings) {

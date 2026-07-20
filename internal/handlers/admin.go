@@ -11,6 +11,7 @@ import (
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
+	"github.com/ice2heart/protectron/internal/i18n"
 	"github.com/ice2heart/protectron/internal/storage"
 )
 
@@ -175,6 +176,39 @@ func (h *Handlers) Set(ctx context.Context, b *bot.Bot, update *models.Update) {
 	}
 	slog.Info("setting changed", "chat_id", msg.Chat.ID, "field", field, "value", stored, "by", msg.From.ID)
 	h.reply(ctx, b, msg, h.msgs.T(lang, "set_ok_msg", nil))
+}
+
+// renderGreeting builds the post-captcha welcome for user in chatTitle: the
+// admin-supplied greeting when set, otherwise the localised default. The
+// result is Markdown and carries a clickable mention.
+func (h *Handlers) renderGreeting(settings *storage.ChatSettings, lang string, user *models.User, chatTitle string) string {
+	params := map[string]string{
+		"user_title": userMention(user),
+		"chat_title": mdEscaper.Replace(chatTitle),
+	}
+	if settings.Greeting == "" {
+		return h.msgs.T(lang, "success_msg", params)
+	}
+	// Custom greetings are plain text: escape the literal spans only, so the
+	// mention link is the only markup in the message. Escaping the whole
+	// string first would break the ${var} syntax itself.
+	return i18n.ExpandFunc(settings.Greeting, params, func(s string) string {
+		return mdEscaper.Replace(unescapeNewlines(s))
+	})
+}
+
+// Test previews the greeting exactly as a joining member would see it.
+func (h *Handlers) Test(ctx context.Context, b *bot.Bot, update *models.Update) {
+	msg := update.Message
+	settings, lang, ok := h.adminCommandPrologue(ctx, b, msg)
+	if !ok {
+		return
+	}
+	chatTitle := settings.Title
+	if chatTitle == "" {
+		chatTitle = msg.Chat.Title
+	}
+	h.sendMarkdown(ctx, b, msg.Chat.ID, h.renderGreeting(settings, lang, msg.From, chatTitle))
 }
 
 // reply answers in-thread, logging failures.

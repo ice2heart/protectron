@@ -95,6 +95,7 @@ func run() error {
 		bot.WithMessageTextHandler("/settings", bot.MatchTypePrefix, h.Settings),
 		bot.WithMessageTextHandler("/stats", bot.MatchTypePrefix, h.Stats),
 		bot.WithMessageTextHandler("/set ", bot.MatchTypePrefix, h.Set),
+		bot.WithMessageTextHandler("/test", bot.MatchTypePrefix, h.Test),
 		bot.WithCallbackQueryDataHandler("c:", bot.MatchTypePrefix, h.Callback),
 	)
 	if err != nil {

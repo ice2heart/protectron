@@ -88,6 +88,13 @@ func userTitle(u *models.User) string {
 // (the only ones the Bot API allows escaping in that mode).
 var mdEscaper = strings.NewReplacer("_", "\\_", "*", "\\*", "`", "\\`", "[", "\\[")
 
+// newlineUnescaper turns the two-character sequences an admin can actually
+// type into Telegram into real control characters. /set greeting arrives as
+// literal text, so "\n" reaches us as a backslash followed by an n.
+var newlineUnescaper = strings.NewReplacer("\\n", "\n", "\\t", "\t")
+
+func unescapeNewlines(s string) string { return newlineUnescaper.Replace(s) }
+
 // userMention renders a clickable inline mention (tg://user?id=…) for
 // messages sent with Markdown parse mode.
 func userMention(u *models.User) string {
