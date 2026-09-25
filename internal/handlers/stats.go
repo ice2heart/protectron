@@ -48,21 +48,34 @@ func (h *Handlers) Stats(ctx context.Context, b *bot.Bot, update *models.Update)
 		h.reply(ctx, b, msg, h.msgs.T(i18n.FallbackLang, "something_gone_wrong_warn", nil))
 		return
 	}
-	h.reply(ctx, b, msg, h.formatStats(ctx, allTime, lastWeek))
+	for _, text := range h.formatStats(ctx, allTime, lastWeek) {
+		h.reply(ctx, b, msg, text)
+	}
 }
 
-func (h *Handlers) formatStats(ctx context.Context, allTime, lastWeek []storage.ChatTotals) string {
+// statsChatsPerMessage caps how many chats go into one reply, keeping each
+// message under Telegram's 4096-character limit.
+const statsChatsPerMessage = 10
+
+// formatStats renders the totals as one or more messages, statsChatsPerMessage
+// chats each.
+func (h *Handlers) formatStats(ctx context.Context, allTime, lastWeek []storage.ChatTotals) []string {
 	if len(allTime) == 0 {
-		return "No stats yet."
+		return []string{"No stats yet."}
 	}
 	week := make(map[int64]storage.ChatTotals, len(lastWeek))
 	for _, t := range lastWeek {
 		week[t.ChatID] = t
 	}
 
+	var messages []string
 	var sb strings.Builder
 	sb.WriteString("Usage stats — all time (last 7 days):\n")
-	for _, t := range allTime {
+	for i, t := range allTime {
+		if i > 0 && i%statsChatsPerMessage == 0 {
+			messages = append(messages, sb.String())
+			sb.Reset()
+		}
 		title, username := "", ""
 		if settings, err := h.store.Chats.Get(ctx, t.ChatID); err == nil {
 			title = settings.Title
@@ -83,5 +96,5 @@ func (h *Handlers) formatStats(ctx context.Context, allTime, lastWeek []storage.
 		fmt.Fprintf(&sb, "  timeouts: %d (%d)\n", t.Timeouts, w.Timeouts)
 		fmt.Fprintf(&sb, "  leaves: %d (%d)\n", t.Leaves, w.Leaves)
 	}
-	return sb.String()
+	return append(messages, sb.String())
 }
